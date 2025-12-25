@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+pip-log.txt
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+*.egg-info/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads and outputs (runtime data)
+backend/uploads/
+backend/outputs/
+backend/temp/
+uploads/
+outputs/
+temp/
+
+# Model cache (large files)
+.cache/
+*.onnx
+*.bin
+*.safetensors
+
+# Test artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+*.tar
+
+# Misc
+.vercel
+.turbo
+

@@ -1,0 +1,49 @@
+# Oil & Gas Document Translator - Development Docker Compose
+# Usage: docker-compose -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  # Backend API (development mode)
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: oilgas-translator-backend-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - TRANSLATION_MODE=self_hosted
+      - DEBUG=true
+      - DATABASE_URL=sqlite+aiosqlite:///./translator.db
+      - CORS_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000"]
+    volumes:
+      - ../backend:/app
+      - upload_data:/app/uploads
+      - output_data:/app/outputs
+      - model_cache:/root/.cache
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  # Frontend (development mode with hot reload)
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile.dev
+    container_name: oilgas-translator-frontend-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+    restart: unless-stopped
+
+volumes:
+  upload_data:
+  output_data:
+  model_cache:
+

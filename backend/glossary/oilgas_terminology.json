@@ -1,0 +1,576 @@
+{
+  "version": "1.0.0",
+  "description": "Oil & Gas industry terminology glossary for translation accuracy",
+  "categories": {
+    "drilling": "Drilling operations and equipment",
+    "production": "Production operations and equipment",
+    "reservoir": "Reservoir engineering terms",
+    "safety": "Health, Safety, and Environment (HSE)",
+    "equipment": "Equipment and machinery",
+    "geology": "Geological terms",
+    "economics": "Financial and economic terms"
+  },
+  "terms": [
+    {
+      "id": "bha",
+      "category": "drilling",
+      "translations": {
+        "en": "Bottom Hole Assembly (BHA)",
+        "es": "Conjunto de Fondo (BHA)",
+        "ar": "مجموعة قاع البئر",
+        "pt": "Conjunto de Fundo (BHA)",
+        "ru": "Компоновка низа бурильной колонны (КНБК)",
+        "zh": "底部钻具组合",
+        "fr": "Assemblage de fond de trou (BHA)",
+        "de": "Bohrlochanordnung (BHA)"
+      }
+    },
+    {
+      "id": "wob",
+      "category": "drilling",
+      "translations": {
+        "en": "Weight on Bit (WOB)",
+        "es": "Peso sobre la Barrena (WOB)",
+        "ar": "الوزن على الدقاق",
+        "pt": "Peso sobre a Broca (WOB)",
+        "ru": "Нагрузка на долото",
+        "zh": "钻压",
+        "fr": "Poids sur l'outil (WOB)",
+        "de": "Gewicht auf Meißel (WOB)"
+      }
+    },
+    {
+      "id": "rop",
+      "category": "drilling",
+      "translations": {
+        "en": "Rate of Penetration (ROP)",
+        "es": "Velocidad de Penetración (ROP)",
+        "ar": "معدل الاختراق",
+        "pt": "Taxa de Penetração (ROP)",
+        "ru": "Механическая скорость проходки",
+        "zh": "钻速",
+        "fr": "Taux de pénétration (ROP)",
+        "de": "Bohrgeschwindigkeit (ROP)"
+      }
+    },
+    {
+      "id": "mwd",
+      "category": "drilling",
+      "translations": {
+        "en": "Measurement While Drilling (MWD)",
+        "es": "Medición Durante la Perforación (MWD)",
+        "ar": "القياس أثناء الحفر",
+        "pt": "Medição Durante a Perfuração (MWD)",
+        "ru": "Каротаж в процессе бурения",
+        "zh": "随钻测量",
+        "fr": "Mesure en cours de forage (MWD)",
+        "de": "Messung während des Bohrens (MWD)"
+      }
+    },
+    {
+      "id": "lwd",
+      "category": "drilling",
+      "translations": {
+        "en": "Logging While Drilling (LWD)",
+        "es": "Registros Durante la Perforación (LWD)",
+        "ar": "التسجيل أثناء الحفر",
+        "pt": "Perfilagem Durante a Perfuração (LWD)",
+        "ru": "Каротаж в процессе бурения",
+        "zh": "随钻测井",
+        "fr": "Diagraphie en cours de forage (LWD)",
+        "de": "Messung während des Bohrens (LWD)"
+      }
+    },
+    {
+      "id": "casing",
+      "category": "drilling",
+      "translations": {
+        "en": "Casing",
+        "es": "Revestimiento",
+        "ar": "غلاف البئر",
+        "pt": "Revestimento",
+        "ru": "Обсадная колонна",
+        "zh": "套管",
+        "fr": "Tubage",
+        "de": "Verrohrung"
+      }
+    },
+    {
+      "id": "cementing",
+      "category": "drilling",
+      "translations": {
+        "en": "Cementing",
+        "es": "Cementación",
+        "ar": "التسميت",
+        "pt": "Cimentação",
+        "ru": "Цементирование",
+        "zh": "固井",
+        "fr": "Cimentation",
+        "de": "Zementation"
+      }
+    },
+    {
+      "id": "mud",
+      "category": "drilling",
+      "translations": {
+        "en": "Drilling Mud",
+        "es": "Lodo de Perforación",
+        "ar": "طين الحفر",
+        "pt": "Lama de Perfuração",
+        "ru": "Буровой раствор",
+        "zh": "钻井液",
+        "fr": "Boue de forage",
+        "de": "Bohrspülung"
+      }
+    },
+    {
+      "id": "bop",
+      "category": "drilling",
+      "translations": {
+        "en": "Blowout Preventer (BOP)",
+        "es": "Preventor de Reventones (BOP)",
+        "ar": "مانع الانفجار",
+        "pt": "Preventor de Erupção (BOP)",
+        "ru": "Противовыбросовое оборудование (ПВО)",
+        "zh": "防喷器",
+        "fr": "Bloc obturateur de puits (BOP)",
+        "de": "Blowout-Preventer (BOP)"
+      }
+    },
+    {
+      "id": "kelly",
+      "category": "drilling",
+      "translations": {
+        "en": "Kelly",
+        "es": "Cuadrante Kelly",
+        "ar": "كيلي",
+        "pt": "Kelly",
+        "ru": "Ведущая труба",
+        "zh": "方钻杆",
+        "fr": "Kelly",
+        "de": "Mitnehmerstange"
+      }
+    },
+    {
+      "id": "choke",
+      "category": "production",
+      "translations": {
+        "en": "Choke",
+        "es": "Estrangulador",
+        "ar": "خانق",
+        "pt": "Choke",
+        "ru": "Штуцер",
+        "zh": "节流阀",
+        "fr": "Duse",
+        "de": "Drossel"
+      }
+    },
+    {
+      "id": "separator",
+      "category": "production",
+      "translations": {
+        "en": "Separator",
+        "es": "Separador",
+        "ar": "فاصل",
+        "pt": "Separador",
+        "ru": "Сепаратор",
+        "zh": "分离器",
+        "fr": "Séparateur",
+        "de": "Separator"
+      }
+    },
+    {
+      "id": "esp",
+      "category": "production",
+      "translations": {
+        "en": "Electrical Submersible Pump (ESP)",
+        "es": "Bomba Electrosumergible (BES)",
+        "ar": "مضخة غاطسة كهربائية",
+        "pt": "Bomba Centrífuga Submersa (BCS)",
+        "ru": "Электроцентробежный насос (ЭЦН)",
+        "zh": "电潜泵",
+        "fr": "Pompe électrique submersible (ESP)",
+        "de": "Elektrische Tauchpumpe (ESP)"
+      }
+    },
+    {
+      "id": "bopd",
+      "category": "production",
+      "translations": {
+        "en": "Barrels of Oil Per Day (BOPD)",
+        "es": "Barriles de Petróleo Por Día (BPPD)",
+        "ar": "برميل نفط يومياً",
+        "pt": "Barris de Petróleo Por Dia (BPPD)",
+        "ru": "Баррелей нефти в день",
+        "zh": "桶/天",
+        "fr": "Barils de pétrole par jour (BOPD)",
+        "de": "Barrel Öl pro Tag (BOPD)"
+      }
+    },
+    {
+      "id": "artificial_lift",
+      "category": "production",
+      "translations": {
+        "en": "Artificial Lift",
+        "es": "Levantamiento Artificial",
+        "ar": "الرفع الاصطناعي",
+        "pt": "Elevação Artificial",
+        "ru": "Механизированная добыча",
+        "zh": "人工举升",
+        "fr": "Levage artificiel",
+        "de": "Künstliche Förderung"
+      }
+    },
+    {
+      "id": "wellhead",
+      "category": "production",
+      "translations": {
+        "en": "Wellhead",
+        "es": "Cabezal de Pozo",
+        "ar": "رأس البئر",
+        "pt": "Cabeça de Poço",
+        "ru": "Устье скважины",
+        "zh": "井口",
+        "fr": "Tête de puits",
+        "de": "Bohrlochkopf"
+      }
+    },
+    {
+      "id": "porosity",
+      "category": "reservoir",
+      "translations": {
+        "en": "Porosity",
+        "es": "Porosidad",
+        "ar": "المسامية",
+        "pt": "Porosidade",
+        "ru": "Пористость",
+        "zh": "孔隙度",
+        "fr": "Porosité",
+        "de": "Porosität"
+      }
+    },
+    {
+      "id": "permeability",
+      "category": "reservoir",
+      "translations": {
+        "en": "Permeability",
+        "es": "Permeabilidad",
+        "ar": "النفاذية",
+        "pt": "Permeabilidade",
+        "ru": "Проницаемость",
+        "zh": "渗透率",
+        "fr": "Perméabilité",
+        "de": "Permeabilität"
+      }
+    },
+    {
+      "id": "saturation",
+      "category": "reservoir",
+      "translations": {
+        "en": "Saturation",
+        "es": "Saturación",
+        "ar": "التشبع",
+        "pt": "Saturação",
+        "ru": "Насыщенность",
+        "zh": "饱和度",
+        "fr": "Saturation",
+        "de": "Sättigung"
+      }
+    },
+    {
+      "id": "eor",
+      "category": "reservoir",
+      "translations": {
+        "en": "Enhanced Oil Recovery (EOR)",
+        "es": "Recuperación Mejorada de Petróleo (EOR)",
+        "ar": "الاستخلاص المعزز للنفط",
+        "pt": "Recuperação Avançada de Petróleo (EOR)",
+        "ru": "Методы увеличения нефтеотдачи (МУН)",
+        "zh": "提高采收率",
+        "fr": "Récupération assistée du pétrole (EOR)",
+        "de": "Verbesserte Ölgewinnung (EOR)"
+      }
+    },
+    {
+      "id": "waterflood",
+      "category": "reservoir",
+      "translations": {
+        "en": "Waterflood",
+        "es": "Inyección de Agua",
+        "ar": "الإغمار بالماء",
+        "pt": "Injeção de Água",
+        "ru": "Заводнение",
+        "zh": "水驱",
+        "fr": "Injection d'eau",
+        "de": "Wasserflutung"
+      }
+    },
+    {
+      "id": "h2s",
+      "category": "safety",
+      "translations": {
+        "en": "Hydrogen Sulfide (H2S)",
+        "es": "Sulfuro de Hidrógeno (H2S)",
+        "ar": "كبريتيد الهيدروجين",
+        "pt": "Sulfeto de Hidrogênio (H2S)",
+        "ru": "Сероводород",
+        "zh": "硫化氢",
+        "fr": "Sulfure d'hydrogène (H2S)",
+        "de": "Schwefelwasserstoff (H2S)"
+      }
+    },
+    {
+      "id": "lel",
+      "category": "safety",
+      "translations": {
+        "en": "Lower Explosive Limit (LEL)",
+        "es": "Límite Inferior de Explosividad (LIE)",
+        "ar": "الحد الأدنى للانفجار",
+        "pt": "Limite Inferior de Explosividade (LIE)",
+        "ru": "Нижний концентрационный предел",
+        "zh": "爆炸下限",
+        "fr": "Limite inférieure d'explosivité (LIE)",
+        "de": "Untere Explosionsgrenze (UEG)"
+      }
+    },
+    {
+      "id": "simops",
+      "category": "safety",
+      "translations": {
+        "en": "Simultaneous Operations (SIMOPS)",
+        "es": "Operaciones Simultáneas (SIMOPS)",
+        "ar": "العمليات المتزامنة",
+        "pt": "Operações Simultâneas (SIMOPS)",
+        "ru": "Одновременные операции",
+        "zh": "同时作业",
+        "fr": "Opérations simultanées (SIMOPS)",
+        "de": "Simultane Operationen (SIMOPS)"
+      }
+    },
+    {
+      "id": "ptw",
+      "category": "safety",
+      "translations": {
+        "en": "Permit to Work (PTW)",
+        "es": "Permiso de Trabajo (PTW)",
+        "ar": "تصريح العمل",
+        "pt": "Permissão de Trabalho (PT)",
+        "ru": "Наряд-допуск",
+        "zh": "工作许可证",
+        "fr": "Permis de travail (PTW)",
+        "de": "Arbeitserlaubnis (PTW)"
+      }
+    },
+    {
+      "id": "jsa",
+      "category": "safety",
+      "translations": {
+        "en": "Job Safety Analysis (JSA)",
+        "es": "Análisis de Seguridad del Trabajo (AST)",
+        "ar": "تحليل سلامة العمل",
+        "pt": "Análise de Segurança do Trabalho (AST)",
+        "ru": "Анализ безопасности работ",
+        "zh": "工作安全分析",
+        "fr": "Analyse de sécurité du travail (AST)",
+        "de": "Arbeitssicherheitsanalyse (JSA)"
+      }
+    },
+    {
+      "id": "ppe",
+      "category": "safety",
+      "translations": {
+        "en": "Personal Protective Equipment (PPE)",
+        "es": "Equipo de Protección Personal (EPP)",
+        "ar": "معدات الحماية الشخصية",
+        "pt": "Equipamento de Proteção Individual (EPI)",
+        "ru": "Средства индивидуальной защиты (СИЗ)",
+        "zh": "个人防护装备",
+        "fr": "Équipement de protection individuelle (EPI)",
+        "de": "Persönliche Schutzausrüstung (PSA)"
+      }
+    },
+    {
+      "id": "pdc_bit",
+      "category": "equipment",
+      "translations": {
+        "en": "PDC Bit",
+        "es": "Barrena PDC",
+        "ar": "رأس حفر PDC",
+        "pt": "Broca PDC",
+        "ru": "Долото PDC",
+        "zh": "PDC钻头",
+        "fr": "Trépan PDC",
+        "de": "PDC-Meißel"
+      }
+    },
+    {
+      "id": "drill_collar",
+      "category": "equipment",
+      "translations": {
+        "en": "Drill Collar",
+        "es": "Lastrabarrena",
+        "ar": "طوق الحفر",
+        "pt": "Comando de Perfuração",
+        "ru": "Утяжеленная бурильная труба",
+        "zh": "钻铤",
+        "fr": "Masse-tige",
+        "de": "Schwerstange"
+      }
+    },
+    {
+      "id": "top_drive",
+      "category": "equipment",
+      "translations": {
+        "en": "Top Drive",
+        "es": "Top Drive",
+        "ar": "القيادة العلوية",
+        "pt": "Top Drive",
+        "ru": "Верхний привод",
+        "zh": "顶驱",
+        "fr": "Top Drive",
+        "de": "Top-Drive"
+      }
+    },
+    {
+      "id": "derrick",
+      "category": "equipment",
+      "translations": {
+        "en": "Derrick",
+        "es": "Torre de Perforación",
+        "ar": "برج الحفر",
+        "pt": "Torre de Perfuração",
+        "ru": "Буровая вышка",
+        "zh": "井架",
+        "fr": "Derrick",
+        "de": "Bohrturm"
+      }
+    },
+    {
+      "id": "formation",
+      "category": "geology",
+      "translations": {
+        "en": "Formation",
+        "es": "Formación",
+        "ar": "التكوين الجيولوجي",
+        "pt": "Formação",
+        "ru": "Пласт",
+        "zh": "地层",
+        "fr": "Formation",
+        "de": "Formation"
+      }
+    },
+    {
+      "id": "pay_zone",
+      "category": "geology",
+      "translations": {
+        "en": "Pay Zone",
+        "es": "Zona Productora",
+        "ar": "المنطقة المنتجة",
+        "pt": "Zona de Interesse",
+        "ru": "Продуктивный пласт",
+        "zh": "产层",
+        "fr": "Zone productive",
+        "de": "Produktive Zone"
+      }
+    },
+    {
+      "id": "seismic",
+      "category": "geology",
+      "translations": {
+        "en": "Seismic",
+        "es": "Sísmica",
+        "ar": "الزلزالي",
+        "pt": "Sísmica",
+        "ru": "Сейсморазведка",
+        "zh": "地震勘探",
+        "fr": "Sismique",
+        "de": "Seismik"
+      }
+    },
+    {
+      "id": "well_log",
+      "category": "geology",
+      "translations": {
+        "en": "Well Log",
+        "es": "Registro de Pozo",
+        "ar": "سجل البئر",
+        "pt": "Perfil de Poço",
+        "ru": "Каротаж",
+        "zh": "测井",
+        "fr": "Diagraphie",
+        "de": "Bohrlochmessung"
+      }
+    },
+    {
+      "id": "capex",
+      "category": "economics",
+      "translations": {
+        "en": "Capital Expenditure (CAPEX)",
+        "es": "Gastos de Capital (CAPEX)",
+        "ar": "النفقات الرأسمالية",
+        "pt": "Despesas de Capital (CAPEX)",
+        "ru": "Капитальные затраты",
+        "zh": "资本支出",
+        "fr": "Dépenses d'investissement (CAPEX)",
+        "de": "Investitionsausgaben (CAPEX)"
+      }
+    },
+    {
+      "id": "opex",
+      "category": "economics",
+      "translations": {
+        "en": "Operating Expenditure (OPEX)",
+        "es": "Gastos Operativos (OPEX)",
+        "ar": "النفقات التشغيلية",
+        "pt": "Despesas Operacionais (OPEX)",
+        "ru": "Операционные затраты",
+        "zh": "运营支出",
+        "fr": "Dépenses d'exploitation (OPEX)",
+        "de": "Betriebsausgaben (OPEX)"
+      }
+    },
+    {
+      "id": "npv",
+      "category": "economics",
+      "translations": {
+        "en": "Net Present Value (NPV)",
+        "es": "Valor Presente Neto (VPN)",
+        "ar": "صافي القيمة الحالية",
+        "pt": "Valor Presente Líquido (VPL)",
+        "ru": "Чистая приведенная стоимость (NPV)",
+        "zh": "净现值",
+        "fr": "Valeur actuelle nette (VAN)",
+        "de": "Nettobarwert (NPV)"
+      }
+    },
+    {
+      "id": "irr",
+      "category": "economics",
+      "translations": {
+        "en": "Internal Rate of Return (IRR)",
+        "es": "Tasa Interna de Retorno (TIR)",
+        "ar": "معدل العائد الداخلي",
+        "pt": "Taxa Interna de Retorno (TIR)",
+        "ru": "Внутренняя норма доходности (IRR)",
+        "zh": "内部收益率",
+        "fr": "Taux de rendement interne (TRI)",
+        "de": "Interner Zinsfuß (IRR)"
+      }
+    },
+    {
+      "id": "psc",
+      "category": "economics",
+      "translations": {
+        "en": "Production Sharing Contract (PSC)",
+        "es": "Contrato de Participación en la Producción",
+        "ar": "عقد المشاركة في الإنتاج",
+        "pt": "Contrato de Partilha de Produção",
+        "ru": "Соглашение о разделе продукции (СРП)",
+        "zh": "产量分成合同",
+        "fr": "Contrat de partage de production (PSC)",
+        "de": "Produktionsbeteiligungsvertrag (PSC)"
+      }
+    }
+  ]
+}
+

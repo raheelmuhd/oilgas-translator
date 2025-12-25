@@ -1,0 +1,172 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+@layer base {
+  * {
+    @apply border-rig-800;
+  }
+  
+  body {
+    @apply bg-rig-950 text-rig-100 antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  ::selection {
+    @apply bg-flame-500/30 text-flame-100;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-rig-900/40 backdrop-blur-xl border border-rig-700/30;
+  }
+  
+  .glass-dark {
+    @apply bg-rig-950/60 backdrop-blur-xl border border-rig-800/50;
+  }
+  
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-to-r from-flame-500 to-flame-600 
+           text-white font-semibold rounded-xl shadow-lg shadow-flame-500/25
+           hover:shadow-flame-500/40 hover:from-flame-400 hover:to-flame-500
+           transition-all duration-300 transform hover:scale-[1.02]
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+  }
+  
+  .btn-secondary {
+    @apply px-6 py-3 bg-rig-800/50 border border-rig-600/50
+           text-rig-100 font-medium rounded-xl
+           hover:bg-rig-700/50 hover:border-rig-500/50
+           transition-all duration-300;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-3 bg-rig-900/50 border border-rig-700/50 
+           rounded-xl text-rig-100 placeholder-rig-500
+           focus:outline-none focus:ring-2 focus:ring-flame-500/50 focus:border-flame-500/50
+           transition-all duration-300;
+  }
+  
+  .card {
+    @apply glass rounded-2xl p-6 hover:border-rig-600/50 transition-all duration-300;
+  }
+  
+  .section-title {
+    @apply text-3xl md:text-4xl font-display font-bold 
+           bg-gradient-to-r from-rig-100 via-flame-300 to-petroleum-400 
+           bg-clip-text text-transparent;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .animate-in {
+    animation: animateIn 0.5s ease-out forwards;
+  }
+  
+  @keyframes animateIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .gradient-text {
+    @apply bg-gradient-to-r from-flame-400 via-flame-300 to-petroleum-400 
+           bg-clip-text text-transparent;
+  }
+  
+  .gradient-border {
+    position: relative;
+  }
+  
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, #ff7f11, #0c8ee7);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-rig-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-rig-700 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-rig-600;
+}
+
+/* Dropzone styles */
+.dropzone {
+  @apply relative border-2 border-dashed border-rig-600/50 rounded-2xl p-12
+         bg-rig-900/30 hover:bg-rig-800/30 hover:border-flame-500/50
+         transition-all duration-300 cursor-pointer;
+}
+
+.dropzone.active {
+  @apply border-flame-500 bg-flame-500/10 scale-[1.01];
+}
+
+/* Progress bar */
+.progress-bar {
+  @apply h-2 bg-rig-800 rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-gradient-to-r from-flame-500 to-petroleum-500 
+         transition-all duration-500 ease-out;
+}
+
+/* Oil rig animation */
+@keyframes drill {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(5px); }
+}
+
+.animate-drill {
+  animation: drill 1s ease-in-out infinite;
+}
+
+/* Glow effect for status */
+.status-processing {
+  @apply animate-pulse text-flame-400;
+}
+
+.status-complete {
+  @apply text-green-400;
+}
+
+.status-error {
+  @apply text-red-400;
+}
+

@@ -1,0 +1,78 @@
+# Oil & Gas Document Translator - Docker Compose
+# Usage: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: oilgas-translator-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - TRANSLATION_MODE=${TRANSLATION_MODE:-self_hosted}
+      - DEBUG=false
+      - DATABASE_URL=sqlite+aiosqlite:///./translator.db
+      - REDIS_URL=redis://redis:6379/0
+      # Add your API keys here for budget/premium modes
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - AZURE_DOC_ENDPOINT=${AZURE_DOC_ENDPOINT:-}
+      - AZURE_DOC_KEY=${AZURE_DOC_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - upload_data:/app/uploads
+      - output_data:/app/outputs
+      - model_cache:/root/.cache
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: oilgas-translator-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Redis for job queue (optional, for production)
+  redis:
+    image: redis:7-alpine
+    container_name: oilgas-translator-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  upload_data:
+  output_data:
+  model_cache:
+  redis_data:
+
+networks:
+  default:
+    name: oilgas-translator-network
+
