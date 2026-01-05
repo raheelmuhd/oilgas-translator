@@ -35,10 +35,28 @@ def get_database_url() -> str:
 
 # Create async engine
 database_url = get_database_url()
-engine = create_async_engine(
-    database_url,
-    echo=settings.debug,
-)
+
+# SQLite requires special configuration for async operations
+if "sqlite" in database_url.lower():
+    # SQLite-specific settings to avoid "Already borrowed" errors
+    # For async SQLite, we use NullPool to avoid connection sharing issues
+    from sqlalchemy.pool import NullPool
+    engine = create_async_engine(
+        database_url,
+        echo=settings.debug,
+        poolclass=NullPool,  # No connection pooling for SQLite
+        connect_args={
+            "check_same_thread": False,  # Allow multi-threaded access
+            "timeout": 30,  # Wait up to 30 seconds for locks
+        },
+    )
+else:
+    # For other databases, use default pool
+    engine = create_async_engine(
+        database_url,
+        echo=settings.debug,
+        pool_pre_ping=True,
+    )
 
 # Session factory
 async_session = sessionmaker(
@@ -50,8 +68,15 @@ async_session = sessionmaker(
 
 async def init_db():
     """Initialize database tables."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        # If database initialization fails, log but don't crash
+        # (database is optional for this application)
+        import structlog
+        logger = structlog.get_logger()
+        logger.warning("Database initialization failed (this is OK if not using database)", error=str(e))
 
 
 async def get_session() -> AsyncSession:

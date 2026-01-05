@@ -1,429 +1,490 @@
 """
-Translation Service - Handles text translation with multiple providers.
-Supports: NLLB (free/CPU), Ollama (free/GPU), DeepSeek (budget), Claude (premium)
+Translation Service - TOC DOT LEADER FIX
+=========================================
+Strips dot leaders before translation, restores after.
 """
 
 import asyncio
 import re
-from abc import ABC, abstractmethod
-from typing import Optional
+import os
+from datetime import datetime
+from typing import Optional, List, Tuple
 
 import httpx
 import structlog
 
 from app.config import TranslationProvider, get_settings
-from app.models import NLLB_LANGUAGE_CODES
 from app.services.glossary_service import GlossaryService
 
 logger = structlog.get_logger()
 
+# Debug log file
+DEBUG_LOG = os.path.join(os.path.expanduser("~"), "translation_debug.log")
 
-class BaseTranslator(ABC):
-    """Abstract base class for translation providers."""
-    
+def debug_log(msg: str, data: dict = None):
+    """Write to debug log file."""
+    timestamp = datetime.now().isoformat()
+    with open(DEBUG_LOG, "a", encoding="utf-8") as f:
+        f.write(f"\n{'='*80}\n")
+        f.write(f"[{timestamp}] {msg}\n")
+        if data:
+            for k, v in data.items():
+                if isinstance(v, str) and len(v) > 500:
+                    f.write(f"  {k}: {v[:500]}... (truncated, {len(v)} chars)\n")
+                else:
+                    f.write(f"  {k}: {v}\n")
+
+
+class BaseTranslator:
     def __init__(self):
         self.glossary = GlossaryService()
-    
-    @abstractmethod
-    async def translate(
-        self, 
-        text: str, 
-        source_lang: str, 
-        target_lang: str
-    ) -> str:
-        """Translate text from source to target language."""
-        pass
-    
-    @abstractmethod
-    def is_available(self) -> bool:
-        """Check if this translation provider is available."""
-        pass
-    
-    def apply_glossary(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Apply oil & gas terminology glossary to translation."""
-        return self.glossary.apply_terms(text, source_lang, target_lang)
-
-
-class NLLBTranslator(BaseTranslator):
-    """
-    NLLB-200 (No Language Left Behind) - Free, runs on CPU.
-    Meta's specialized translation model supporting 200+ languages.
-    Accuracy: 85-90% for technical content.
-    """
-    
-    def __init__(self):
-        super().__init__()
-        self.settings = get_settings()
-        self._model = None
-        self._tokenizer = None
-        self._initialized = False
-    
-    def _initialize(self):
-        """Lazy initialization of NLLB model."""
-        if not self._initialized:
-            try:
-                from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-                import torch
-                
-                logger.info("Loading NLLB model...", model=self.settings.nllb_model)
-                
-                self._tokenizer = AutoTokenizer.from_pretrained(
-                    self.settings.nllb_model
-                )
-                self._model = AutoModelForSeq2SeqLM.from_pretrained(
-                    self.settings.nllb_model
-                )
-                
-                # Move to appropriate device
-                device = self.settings.nllb_device
-                if device == "cuda" and torch.cuda.is_available():
-                    self._model = self._model.cuda()
-                
-                self._model.eval()
-                self._initialized = True
-                logger.info("NLLB model loaded successfully")
-                
-            except Exception as e:
-                logger.error("Failed to initialize NLLB", error=str(e))
-                self._initialized = False
-    
-    def is_available(self) -> bool:
-        return True  # NLLB is always available (will download if needed)
-    
-    async def translate(
-        self, 
-        text: str, 
-        source_lang: str, 
-        target_lang: str
-    ) -> str:
-        """Translate using NLLB model."""
-        self._initialize()
-        if not self._model:
-            raise RuntimeError("NLLB model not initialized")
-        
-        # Convert language codes to NLLB format
-        src_code = NLLB_LANGUAGE_CODES.get(source_lang, "eng_Latn")
-        tgt_code = NLLB_LANGUAGE_CODES.get(target_lang, "eng_Latn")
-        
-        # Set source language
-        self._tokenizer.src_lang = src_code
-        
-        # Process in chunks for long text
-        max_length = 512
-        chunks = self._split_text(text, max_length)
-        translated_chunks = []
-        
-        for chunk in chunks:
-            translated = await asyncio.get_event_loop().run_in_executor(
-                None,
-                self._translate_chunk,
-                chunk,
-                tgt_code
-            )
-            translated_chunks.append(translated)
-        
-        result = ' '.join(translated_chunks)
-        
-        # Apply glossary for technical terms
-        result = self.apply_glossary(result, source_lang, target_lang)
-        
-        return result
-    
-    def _translate_chunk(self, text: str, target_lang: str) -> str:
-        """Translate a single chunk of text."""
-        import torch
-        
-        inputs = self._tokenizer(
-            text, 
-            return_tensors="pt", 
-            padding=True, 
-            truncation=True,
-            max_length=512
-        )
-        
-        if self.settings.nllb_device == "cuda":
-            inputs = {k: v.cuda() for k, v in inputs.items()}
-        
-        with torch.no_grad():
-            generated = self._model.generate(
-                **inputs,
-                forced_bos_token_id=self._tokenizer.convert_tokens_to_ids(target_lang),
-                max_length=512,
-                num_beams=5,
-                early_stopping=True
-            )
-        
-        return self._tokenizer.decode(generated[0], skip_special_tokens=True)
-    
-    def _split_text(self, text: str, max_length: int) -> list[str]:
-        """Split text into chunks at sentence boundaries."""
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        chunks = []
-        current_chunk = []
-        current_length = 0
-        
-        for sentence in sentences:
-            if current_length + len(sentence) > max_length and current_chunk:
-                chunks.append(' '.join(current_chunk))
-                current_chunk = [sentence]
-                current_length = len(sentence)
-            else:
-                current_chunk.append(sentence)
-                current_length += len(sentence)
-        
-        if current_chunk:
-            chunks.append(' '.join(current_chunk))
-        
-        return chunks
 
 
 class OllamaTranslator(BaseTranslator):
-    """
-    Ollama - Free, runs locally. Best with GPU.
-    Uses Llama or other models for translation.
-    """
-    
+    """Translation with smart TOC handling."""
+
+    CHUNK_SIZE_CHARS = 800
+
     def __init__(self):
         super().__init__()
         self.settings = get_settings()
-    
+        self._available = None
+        # Clear debug log on init
+        with open(DEBUG_LOG, "w") as f:
+            f.write(f"=== Translation Debug Log Started {datetime.now()} ===\n")
+
     def is_available(self) -> bool:
-        """Check if Ollama is running."""
+        if self._available is not None:
+            return self._available
         try:
-            import httpx
-            response = httpx.get(f"{self.settings.ollama_base_url}/api/tags", timeout=2)
-            return response.status_code == 200
+            response = httpx.get(f"{self.settings.ollama_base_url}/api/tags", timeout=5)
+            if response.status_code == 200:
+                models = response.json().get("models", [])
+                model_names = [m.get("name", "") for m in models]
+                self._available = any(self.settings.ollama_model in name for name in model_names)
+            else:
+                self._available = False
         except:
+            self._available = False
+        return self._available
+
+    def _is_toc_content(self, text: str) -> bool:
+        """Detect if text is table of contents (has dot leaders)."""
+        # Count lines with dot leaders
+        dot_leader_pattern = r'\.\s*\.\s*\.'
+        lines_with_dots = len(re.findall(dot_leader_pattern, text))
+        total_lines = len([l for l in text.split('\n') if l.strip()])
+        
+        # If more than 30% of lines have dot leaders, it's TOC
+        if total_lines > 0 and lines_with_dots / total_lines > 0.3:
+            return True
+        return False
+
+    def _is_abbreviation_content(self, text: str) -> bool:
+        """Detect if text is an abbreviation list (has em-dashes)."""
+        lines = [l for l in text.split('\n') if l.strip()]
+        if not lines:
             return False
-    
-    async def translate(
-        self, 
-        text: str, 
-        source_lang: str, 
-        target_lang: str
-    ) -> str:
-        """Translate using Ollama."""
-        from app.models import SUPPORTED_LANGUAGES
         
-        src_name = SUPPORTED_LANGUAGES.get(source_lang, source_lang)
-        tgt_name = SUPPORTED_LANGUAGES.get(target_lang, target_lang)
+        # Count lines with em-dash or regular dash pattern (ABBR — meaning)
+        dash_pattern = r'^[А-ЯІЇЄҐA-Z]{2,10}\s*[—\-–]\s*.+'
+        lines_with_dashes = sum(1 for l in lines if re.match(dash_pattern, l.strip()))
         
-        prompt = f"""Translate the following text from {src_name} to {tgt_name}. 
-This is a technical oil and gas document. Maintain technical terminology accuracy.
-Only output the translation, nothing else.
+        # If more than 50% of lines are abbreviation format, it's abbreviations
+        if lines_with_dashes / len(lines) > 0.5:
+            return True
+        return False
 
-Text to translate:
-{text}"""
+    def _parse_toc_entries(self, text: str) -> List[dict]:
+        """Parse TOC into structured entries."""
+        entries = []
+        lines = text.split('\n')
         
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(
-                f"{self.settings.ollama_base_url}/api/generate",
-                json={
-                    "model": self.settings.ollama_model,
-                    "prompt": prompt,
-                    "stream": False
-                }
-            )
-            response.raise_for_status()
-            result = response.json()["response"]
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            
+            if not line.strip():
+                entries.append({'type': 'empty', 'text': '', 'page': None})
+                i += 1
+                continue
+            
+            # Check if line has page number at end (with dots before it)
+            match = re.match(r'^(.+?)\s*\.[\s.]*(\d+)\s*$', line)
+            
+            if match:
+                title = match.group(1).strip()
+                page = match.group(2)
+                entries.append({'type': 'toc_entry', 'text': title, 'page': page})
+            else:
+                # Line without page number - might be continuation or header
+                # Check if next line(s) complete this entry
+                combined = line.strip()
+                j = i + 1
+                
+                # Look ahead for continuation lines
+                while j < len(lines):
+                    next_line = lines[j]
+                    next_match = re.match(r'^(.+?)\s*\.[\s.]*(\d+)\s*$', next_line)
+                    
+                    if next_match:
+                        # This line completes the entry
+                        combined += ' ' + next_match.group(1).strip()
+                        page = next_match.group(2)
+                        entries.append({'type': 'toc_entry', 'text': combined, 'page': page})
+                        i = j
+                        break
+                    elif next_line.strip() and not re.match(r'^\d+\.', next_line):
+                        # Continuation line (doesn't start with number)
+                        combined += ' ' + next_line.strip()
+                        j += 1
+                    else:
+                        # Not a continuation
+                        entries.append({'type': 'header', 'text': combined, 'page': None})
+                        i = j - 1
+                        break
+                else:
+                    # End of text
+                    entries.append({'type': 'header', 'text': combined, 'page': None})
+            
+            i += 1
         
-        return self.apply_glossary(result, source_lang, target_lang)
+        return entries
 
+    def _format_toc_entry(self, text: str, page: str, total_width: int = 90) -> str:
+        """Reconstruct TOC line with dot leaders."""
+        if page is None:
+            return text
+        
+        # Calculate dots needed
+        dots_space = total_width - len(text) - len(page) - 2
+        if dots_space < 5:
+            dots_space = 5
+        
+        dots = ' ' + '.' * dots_space + ' '
+        return f"{text}{dots}{page}"
 
-class DeepSeekTranslator(BaseTranslator):
-    """
-    DeepSeek - Budget option, good quality.
-    Cost: ~$0.28/$0.42 per million tokens.
-    """
-    
-    def __init__(self):
-        super().__init__()
-        self.settings = get_settings()
-    
-    def is_available(self) -> bool:
-        return bool(self.settings.deepseek_api_key)
-    
-    async def translate(
-        self, 
-        text: str, 
-        source_lang: str, 
-        target_lang: str
-    ) -> str:
-        """Translate using DeepSeek API."""
-        from app.models import SUPPORTED_LANGUAGES
+    async def _translate_simple(self, text: str, src_lang: str, tgt_lang: str) -> str:
+        """Simple translation without dots."""
+        prompt = f"Translate to {tgt_lang}. Output ONLY the translation:\n\n{text}"
         
-        src_name = SUPPORTED_LANGUAGES.get(source_lang, source_lang)
-        tgt_name = SUPPORTED_LANGUAGES.get(target_lang, target_lang)
-        
-        system_prompt = """You are an expert translator specializing in oil and gas industry documents. 
-Translate accurately while preserving technical terminology. 
-Only output the translation, no explanations or notes."""
-        
-        user_prompt = f"Translate this from {src_name} to {tgt_name}:\n\n{text}"
-        
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(
-                f"{self.settings.deepseek_base_url}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.settings.deepseek_api_key}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": self.settings.deepseek_model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "temperature": 0.3
-                }
-            )
-            response.raise_for_status()
-            result = response.json()["choices"][0]["message"]["content"]
-        
-        return self.apply_glossary(result, source_lang, target_lang)
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                response = await client.post(
+                    f"{self.settings.ollama_base_url}/api/chat",
+                    json={
+                        "model": self.settings.ollama_model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.2,
+                            "num_predict": 2000,
+                            "num_ctx": 4096,
+                        }
+                    }
+                )
+                response.raise_for_status()
+                result = response.json().get("message", {}).get("content", "")
+                return self._clean_response(result)
+        except Exception as e:
+            debug_log(f"Translation error", {"error": str(e)})
+            return text
 
+    async def translate(self, text: str, source_lang: str, target_lang: str) -> str:
+        """Main translation with TOC and abbreviation detection."""
+        if not text.strip():
+            return ""
 
-class ClaudeTranslator(BaseTranslator):
-    """
-    Claude - Premium option, highest quality (78% "good" rating).
-    Cost: ~$3/$15 per million tokens.
-    """
-    
-    def __init__(self):
-        super().__init__()
-        self.settings = get_settings()
-    
-    def is_available(self) -> bool:
-        return bool(self.settings.anthropic_api_key)
-    
-    async def translate(
-        self, 
-        text: str, 
-        source_lang: str, 
-        target_lang: str
-    ) -> str:
-        """Translate using Claude API."""
-        from anthropic import AsyncAnthropic
-        from app.models import SUPPORTED_LANGUAGES
-        
-        client = AsyncAnthropic(api_key=self.settings.anthropic_api_key)
-        
-        src_name = SUPPORTED_LANGUAGES.get(source_lang, source_lang)
-        tgt_name = SUPPORTED_LANGUAGES.get(target_lang, target_lang)
-        
-        # Load glossary context
-        glossary_context = self.glossary.get_context_for_prompt(source_lang, target_lang)
-        
-        system_prompt = f"""You are an expert translator specializing in oil and gas industry documents.
+        lang_names = {"uk": "Ukrainian", "en": "English", "ru": "Russian"}
+        src_name = lang_names.get(source_lang, source_lang)
+        tgt_name = lang_names.get(target_lang, target_lang)
 
-TRANSLATION GUIDELINES:
-1. Translate from {src_name} to {tgt_name} with high accuracy
-2. Preserve technical terminology exactly as used in the industry
-3. Maintain document structure and formatting
-4. Keep numbers, measurements, and units consistent
-5. Translate abbreviations when appropriate, keep standard ones (API, BOP, etc.)
+        debug_log("=== NEW PAGE TRANSLATION ===", {
+            "source_lang": src_name,
+            "target_lang": tgt_name,
+            "input_length": len(text),
+            "is_toc": self._is_toc_content(text),
+            "is_abbreviations": self._is_abbreviation_content(text)
+        })
 
-{glossary_context}
+        # Check content type and use appropriate strategy
+        if self._is_toc_content(text):
+            debug_log("Detected TOC content - using smart TOC translation")
+            return await self._translate_toc(text, src_name, tgt_name)
+        elif self._is_abbreviation_content(text):
+            debug_log("Detected abbreviation content - using abbreviation translation")
+            return await self._translate_abbreviations(text, src_name, tgt_name)
+        else:
+            debug_log("Regular content - using standard translation")
+            return await self._translate_narrative(text, src_name, tgt_name)
 
-Only output the translation. No explanations, notes, or commentary."""
-
-        response = await client.messages.create(
-            model=self.settings.claude_model,
-            max_tokens=4096,
-            messages=[
-                {"role": "user", "content": f"Translate this text:\n\n{text}"}
-            ],
-            system=system_prompt
-        )
+    async def _translate_toc(self, text: str, src_lang: str, tgt_lang: str) -> str:
+        """Smart TOC translation - strip dots, translate, restore."""
         
-        result = response.content[0].text
-        return self.apply_glossary(result, source_lang, target_lang)
+        # Step 1: Parse TOC entries
+        entries = self._parse_toc_entries(text)
+        debug_log(f"Parsed {len(entries)} TOC entries")
+        
+        # Step 2: Extract texts to translate (skip empty lines)
+        texts_to_translate = []
+        entry_indices = []  # Track which entries need translation
+        
+        for i, entry in enumerate(entries):
+            if entry['type'] != 'empty' and entry['text']:
+                texts_to_translate.append(entry['text'])
+                entry_indices.append(i)
+        
+        if not texts_to_translate:
+            return text
+        
+        # Step 3: Translate all texts at once (batch for efficiency)
+        combined = "\n".join(texts_to_translate)
+        debug_log("Translating TOC texts (without dots)", {"text_count": len(texts_to_translate)})
+        
+        translated = await self._translate_simple(combined, src_lang, tgt_lang)
+        
+        if not translated:
+            debug_log("TOC translation failed - returning original")
+            return text
+        
+        translated_lines = translated.split('\n')
+        debug_log(f"Got {len(translated_lines)} translated lines")
+        
+        # Step 4: Reconstruct with dot leaders
+        result_lines = []
+        trans_idx = 0
+        
+        for i, entry in enumerate(entries):
+            if entry['type'] == 'empty':
+                result_lines.append('')
+            elif i in entry_indices and trans_idx < len(translated_lines):
+                trans_text = translated_lines[trans_idx].strip()
+                trans_idx += 1
+                
+                if entry['page']:
+                    result_lines.append(self._format_toc_entry(trans_text, entry['page']))
+                else:
+                    result_lines.append(trans_text)
+            else:
+                # Fallback to original
+                if entry['page']:
+                    result_lines.append(self._format_toc_entry(entry['text'], entry['page']))
+                else:
+                    result_lines.append(entry['text'])
+        
+        result = '\n'.join(result_lines)
+        debug_log("TOC translation complete", {"result_length": len(result)})
+        return result
+
+    async def _translate_abbreviations(self, text: str, src_lang: str, tgt_lang: str) -> str:
+        """Translate abbreviation lists - use simple prompt that works."""
+        
+        # Simple prompt - this worked in testing!
+        prompt = f"Translate to {tgt_lang}. Keep the same format (abbreviation — meaning). Transliterate Cyrillic abbreviations to Latin:\n\n{text}"
+        
+        debug_log("Translating abbreviations as single block", {"length": len(text)})
+        
+        try:
+            async with httpx.AsyncClient(timeout=120) as client:
+                response = await client.post(
+                    f"{self.settings.ollama_base_url}/api/chat",
+                    json={
+                        "model": self.settings.ollama_model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "stream": False,
+                        "options": {
+                            "temperature": 0.2,
+                            "num_predict": 2000,
+                            "num_ctx": 4096,
+                        }
+                    }
+                )
+                response.raise_for_status()
+                result = response.json().get("message", {}).get("content", "")
+                result = self._clean_response(result)
+                
+                if result:
+                    debug_log("Abbreviation translation complete", {"result_length": len(result)})
+                    return result
+                else:
+                    debug_log("Abbreviation translation empty - returning original")
+                    return text
+                    
+        except Exception as e:
+            debug_log(f"Abbreviation translation error", {"error": str(e)})
+            return text
+
+    async def _translate_narrative(self, text: str, src_lang: str, tgt_lang: str) -> str:
+        """Translate narrative content with context chaining."""
+        
+        # Split into chunks
+        chunks = self._split_into_chunks(text)
+        debug_log(f"Split narrative into {len(chunks)} chunks")
+        
+        if len(chunks) == 1:
+            return await self._translate_simple(chunks[0], src_lang, tgt_lang)
+        
+        # Translate with context
+        translated_chunks = []
+        prev_translation = ""
+        
+        for i, chunk in enumerate(chunks):
+            if not chunk.strip():
+                translated_chunks.append(chunk)
+                continue
+            
+            if prev_translation:
+                prompt = f"""Translate to {tgt_lang}. Keep same structure.
+
+CONTEXT (previous translation for consistency):
+{prev_translation[-300:]}
+
+TRANSLATE THIS:
+{chunk}
+
+OUTPUT (translation only):"""
+            else:
+                prompt = f"Translate to {tgt_lang}. Output ONLY the translation:\n\n{chunk}"
+            
+            try:
+                async with httpx.AsyncClient(timeout=120) as client:
+                    response = await client.post(
+                        f"{self.settings.ollama_base_url}/api/chat",
+                        json={
+                            "model": self.settings.ollama_model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "stream": False,
+                            "options": {
+                                "temperature": 0.2,
+                                "num_predict": 2000,
+                                "num_ctx": 4096,
+                            }
+                        }
+                    )
+                    result = response.json().get("message", {}).get("content", "")
+                    result = self._clean_response(result)
+                    
+                    if result:
+                        translated_chunks.append(result)
+                        prev_translation = result
+                    else:
+                        translated_chunks.append(chunk)
+                        prev_translation = chunk
+                        
+            except Exception as e:
+                debug_log(f"Chunk {i} error", {"error": str(e)})
+                translated_chunks.append(chunk)
+        
+        return '\n'.join(translated_chunks)
+
+    def _split_into_chunks(self, text: str) -> List[str]:
+        """Split text into chunks at paragraph boundaries."""
+        if len(text) <= self.CHUNK_SIZE_CHARS:
+            return [text]
+        
+        # Split by paragraphs
+        paragraphs = text.split('\n\n')
+        
+        chunks = []
+        current = ""
+        
+        for para in paragraphs:
+            if len(current) + len(para) > self.CHUNK_SIZE_CHARS and current:
+                chunks.append(current.strip())
+                current = para
+            else:
+                current = current + '\n\n' + para if current else para
+        
+        if current.strip():
+            chunks.append(current.strip())
+        
+        return chunks if chunks else [text]
+
+    def _clean_response(self, text: str) -> str:
+        """Clean LLM response."""
+        if not text:
+            return ""
+        
+        # Remove think tags (both with content and standalone)
+        text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
+        
+        # Remove /think artifacts (Qwen3 sometimes outputs this)
+        text = re.sub(r'\s*/think\s*', '', text, flags=re.IGNORECASE)
+        text = re.sub(r'/no\s*think', '', text, flags=re.IGNORECASE)
+        
+        text = text.strip()
+        
+        # Remove common prefixes
+        prefixes = [
+            "here is the translation:",
+            "here's the translation:",
+            "translation:",
+            "output:",
+        ]
+        
+        text_lower = text.lower()
+        for prefix in prefixes:
+            if text_lower.startswith(prefix):
+                text = text[len(prefix):].strip()
+                break
+        
+        return text
 
 
 class TranslationService:
-    """Main translation service that manages different providers."""
-    
-    def __init__(self):
-        self.providers = {
-            TranslationProvider.NLLB: NLLBTranslator(),
-            TranslationProvider.OLLAMA: OllamaTranslator(),
-            TranslationProvider.DEEPSEEK: DeepSeekTranslator(),
-            TranslationProvider.CLAUDE: ClaudeTranslator(),
-        }
-    
-    def get_available_providers(self) -> list[str]:
-        """Get list of available translation providers."""
-        return [p.value for p, impl in self.providers.items() if impl.is_available()]
-    
-    async def translate(
-        self,
-        text: str,
-        source_lang: str,
-        target_lang: str,
-        provider: Optional[TranslationProvider] = None
-    ) -> tuple[str, str]:
-        """
-        Translate text.
-        Returns: (translated_text, provider_used)
-        """
-        settings = get_settings()
-        
-        # Select provider based on mode if not specified
-        if provider is None:
-            mode = settings.translation_mode.value
-            if mode == "premium" and self.providers[TranslationProvider.CLAUDE].is_available():
-                provider = TranslationProvider.CLAUDE
-            elif mode == "budget" and self.providers[TranslationProvider.DEEPSEEK].is_available():
-                provider = TranslationProvider.DEEPSEEK
-            else:
-                provider = TranslationProvider.NLLB
-        
-        translator = self.providers.get(provider)
-        if not translator or not translator.is_available():
-            # Fallback chain: Claude -> DeepSeek -> Ollama -> NLLB
-            for fallback in [TranslationProvider.CLAUDE, TranslationProvider.DEEPSEEK, 
-                           TranslationProvider.OLLAMA, TranslationProvider.NLLB]:
-                if self.providers[fallback].is_available():
-                    translator = self.providers[fallback]
-                    provider = fallback
-                    break
-        
-        logger.info("Starting translation", provider=provider.value, chars=len(text))
-        translated = await translator.translate(text, source_lang, target_lang)
-        logger.info("Translation complete", chars=len(translated))
-        
-        return translated, provider.value
-    
-    async def translate_chunks(
-        self,
-        chunks: list[str],
-        source_lang: str,
-        target_lang: str,
-        provider: Optional[TranslationProvider] = None,
-        progress_callback=None
-    ) -> list[str]:
-        """
-        Translate multiple chunks with progress tracking.
-        """
-        translated = []
-        total = len(chunks)
-        
-        for i, chunk in enumerate(chunks):
-            result, _ = await self.translate(chunk, source_lang, target_lang, provider)
-            translated.append(result)
-            
-            if progress_callback:
-                progress_callback((i + 1) / total * 100)
-        
-        return translated
-    
-    async def detect_language(self, text: str) -> str:
-        """Detect the language of input text."""
-        try:
-            # Use a simple heuristic or langdetect
-            from langdetect import detect
-            lang = detect(text[:1000])  # Use first 1000 chars
-            return lang
-        except:
-            return "en"  # Default to English
+    """Translation service with TOC handling."""
 
+    def __init__(self):
+        self.settings = get_settings()
+        self.ollama = OllamaTranslator()
+        # For compatibility with main.py
+        self.providers = self.get_available_providers()
+        logger.info("TranslationService initialized with TOC fix")
+        logger.info(f"Debug log: {DEBUG_LOG}")
+
+    def get_available_providers(self) -> List[str]:
+        providers = []
+        if self.ollama.is_available():
+            providers.append("ollama")
+        return providers
+
+    def needs_translation(self, text: str, target_lang: str = "en") -> bool:
+        if not text or len(text.strip()) < 20:
+            return False
+        latin = sum(1 for c in text if c.isalpha() and ord(c) < 128)
+        non_latin = sum(1 for c in text if c.isalpha() and ord(c) >= 128)
+        total = latin + non_latin
+        if total == 0:
+            return False
+        if target_lang.lower() in ["en", "eng"] and (latin / total) > 0.7:
+            return False
+        return True
+
+    async def translate_if_needed(
+        self, text: str, source_lang: str, target_lang: str,
+        provider: Optional[TranslationProvider] = None
+    ) -> Tuple[str, str, bool]:
+        if not self.needs_translation(text, target_lang):
+            return text, "skipped", False
+        translated, provider_used = await self.translate(text, source_lang, target_lang, provider)
+        return translated, provider_used, True
+
+    async def translate(
+        self, text: str, source_lang: str, target_lang: str,
+        provider: Optional[TranslationProvider] = None
+    ) -> Tuple[str, str]:
+        translated = await self.ollama.translate(text, source_lang, target_lang)
+        return translated, "ollama"
+
+    async def detect_language(self, text: str) -> str:
+        try:
+            from langdetect import detect
+            return detect(text[:1000])
+        except:
+            cyrillic = sum(1 for c in text[:500] if '\u0400' <= c <= '\u04FF')
+            return "uk" if cyrillic > 50 else "en"
+
+    async def detect_language_details(self, text: str) -> dict:
+        lang = await self.detect_language(text)
+        return {"top": lang, "candidates": [{"lang": lang, "prob": None}]}

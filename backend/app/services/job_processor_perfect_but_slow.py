@@ -44,20 +44,20 @@ logger = structlog.get_logger()
 @dataclass
 class TranslationConfig:
     """Pipeline configuration."""
-    # Chunking - LARGER chunks since quality is proven excellent
-    toc_lines_per_chunk: int = 20          # Lines per TOC chunk (increased)
-    narrative_chars_per_chunk: int = 3000  # Chars per chunk (increased - 2310 worked perfectly)
+    # Chunking - SMALLER for reliable Ollama processing
+    toc_lines_per_chunk: int = 10          # Lines per TOC chunk (reduced)
+    narrative_chars_per_chunk: int = 1500  # Chars per chunk (reduced from 2500)
     
     # Timeouts
-    chunk_timeout: float = 180.0           # 3 minutes per chunk (larger chunks need more time)
+    chunk_timeout: float = 120.0           # 2 minutes per chunk
     
-    # Quality thresholds
+    # Quality thresholds - lower to avoid infinite retries
     min_acceptable_accuracy: float = 0.30  # Accept 30%+ 
     target_accuracy: float = 0.98          # Ideal accuracy
     
-    # Retry
+    # Retry - fewer retries
     max_chunk_retries: int = 1             # Only 1 retry
-    retry_delay: float = 0.5               # Short delay
+    retry_delay: float = 0.5               # Shorter delay
     
     def log_config(self):
         """Log all configuration values."""
@@ -238,7 +238,7 @@ class JobProcessor:
     - No Ollama queue timeouts
     """
 
-    OPTIMIZED_CHUNK_SIZE = 3000  # Larger chunks = fewer round trips = faster
+    OPTIMIZED_CHUNK_SIZE = 1500  # Updated to match config
     
     def __init__(self, db_session=None):
         self.settings = get_settings()

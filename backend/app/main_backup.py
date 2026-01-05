@@ -1,6 +1,6 @@
 """
 Oil & Gas Document Translator - FastAPI Backend
-With GPU detection and provider switching support.
+Optimized with real-time progress tracking.
 """
 
 import asyncio
@@ -51,45 +51,10 @@ logger = structlog.get_logger()
 settings = get_settings()
 
 
-def detect_gpu() -> dict:
-    """Detect GPU availability and return system info."""
-    gpu_info = {
-        "gpu_available": False,
-        "gpu_name": None,
-        "gpu_memory_gb": None,
-        "cuda_version": None,
-        "using_device": "cpu"
-    }
-    
-    try:
-        import torch
-        if torch.cuda.is_available():
-            gpu_info["gpu_available"] = True
-            gpu_info["gpu_name"] = torch.cuda.get_device_name(0)
-            gpu_info["gpu_memory_gb"] = round(torch.cuda.get_device_properties(0).total_memory / 1e9, 2)
-            gpu_info["cuda_version"] = torch.version.cuda
-            gpu_info["using_device"] = "cuda"
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.warning(f"GPU detection error: {e}")
-    
-    return gpu_info
-
-
-# Detect GPU at startup
-GPU_INFO = detect_gpu()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
-    logger.info(
-        "Starting Oil & Gas Document Translator", 
-        mode=settings.translation_mode.value,
-        gpu_available=GPU_INFO["gpu_available"],
-        device=GPU_INFO["using_device"]
-    )
+    logger.info("Starting Oil & Gas Document Translator", mode=settings.translation_mode.value)
     
     for dir_path in [settings.upload_dir, settings.output_dir, settings.temp_dir]:
         Path(dir_path).mkdir(parents=True, exist_ok=True)
@@ -108,7 +73,8 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware - Allow all localhost ports for development
+# In production, restrict this to your actual frontend domain
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -131,7 +97,7 @@ ocr_service = OCRService()
 translation_service = TranslationService()
 job_processor = JobProcessor()
 
-# Job status storage
+# Job status storage (in-memory for simplicity, use Redis in production)
 job_storage = {}
 
 
@@ -142,7 +108,7 @@ async def update_job_status(
     message: str,
     extra: dict = None
 ):
-    """Update job status in storage."""
+    """Update job status in storage with detailed progress info."""
     if job_id not in job_storage:
         job_storage[job_id] = {}
     
@@ -201,7 +167,7 @@ async def root():
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint - accessible from both /health and /api/v1/health."""
     try:
         return HealthResponse(
             status="healthy",
@@ -221,128 +187,19 @@ async def health_check():
         )
 
 
-@app.get("/api/v1/system-info", tags=["Config"])
-async def get_system_info():
-    """
-    Get system information including GPU availability and speed estimates.
-    Frontend uses this to show warnings and provider options.
-    """
-    # Check if Ollama is available with configured model
-    ollama_available = False
-    ollama_model = settings.ollama_model  # Get configured model name
-    try:
-        from app.config import TranslationProvider
-        ollama_translator = translation_service.providers.get(TranslationProvider.OLLAMA)
-        if ollama_translator:
-            ollama_available = ollama_translator.is_available()
-    except Exception:
-        pass
-
-    # Check if DeepSeek API is configured
-    deepseek_available = bool(settings.deepseek_api_key)
-    claude_available = bool(settings.anthropic_api_key)
-
-    # Calculate speed estimates based on hardware
-    if GPU_INFO["gpu_available"]:
-        nllb_speed = "fast"
-        nllb_estimate = "2-5 minutes for 10 pages"
-        speed_warning = None
-    else:
-        nllb_speed = "slow"
-        nllb_estimate = "15-30 minutes for 10 pages"
-        speed_warning = "No GPU detected. Translation using the free NLLB model will be slow on CPU. Consider using DeepSeek API for faster results (~$0.01 per page)."
-
-    # Determine recommendation based on GPU availability
-    if GPU_INFO["gpu_available"]:
-        # GPU detected - free local models will be fast
-        if ollama_available:
-            recommendation = "ollama"
-            speed_warning = None  # GPU + Ollama = great combo
-            recommendation_reason = f"GPU detected! Using FREE Ollama with {ollama_model} (fast, high accuracy)"
-        else:
-            recommendation = "nllb"
-            speed_warning = None  # GPU + NLLB = good
-            recommendation_reason = "GPU detected! Using FREE NLLB with CUDA acceleration"
-    else:
-        # No GPU - warn about slow performance, recommend API
-        if deepseek_available:
-            recommendation = "deepseek"
-            speed_warning = "No GPU detected. Free local models (Ollama/NLLB) will run on CPU and be SLOW. We recommend using DeepSeek API for faster results (~$0.01 per page)."
-            recommendation_reason = "No GPU - DeepSeek API recommended for faster translation"
-        elif ollama_available:
-            recommendation = "ollama"
-            speed_warning = f"No GPU detected. Ollama/{ollama_model} will run on CPU (slower). Consider setting DEEPSEEK_API_KEY for faster results."
-            recommendation_reason = "No GPU - Ollama available but will be slow on CPU"
-        else:
-            recommendation = "nllb"
-            speed_warning = "No GPU detected. NLLB will run on CPU (VERY SLOW). Strongly recommend setting DEEPSEEK_API_KEY for faster translation (~$0.01 per page)."
-            recommendation_reason = "No GPU - NLLB will be very slow on CPU"
-
-    return {
-        "gpu": GPU_INFO,
-        "providers": {
-            "ollama": {
-                "available": ollama_available,
-                "speed": "medium",
-                "estimate": "5-10 minutes for 10 pages",
-                "cost": "Free",
-                "model": settings.ollama_model
-            },
-            "nllb": {
-                "available": True,
-                "speed": nllb_speed,
-                "estimate": nllb_estimate,
-                "cost": "Free",
-                "device": GPU_INFO["using_device"]
-            },
-            "deepseek": {
-                "available": deepseek_available,
-                "speed": "very_fast",
-                "estimate": "30 seconds - 2 minutes for 10 pages",
-                "cost": "~$0.01 per page (~$0.10 for 10 pages)"
-            },
-            "claude": {
-                "available": claude_available,
-                "speed": "very_fast",
-                "estimate": "30 seconds - 2 minutes for 10 pages",
-                "cost": "~$0.05 per page (~$0.50 for 10 pages)"
-            }
-        },
-        "speed_warning": speed_warning,
-        "recommendation": recommendation,
-        "recommendation_reason": recommendation_reason
-    }
-
-
 @app.get("/api/v1/providers", tags=["Config"])
 async def get_providers():
-    """Get available OCR and translation providers with speed info."""
+    """Get available OCR and translation providers."""
     ocr_default, trans_default = get_providers_for_mode(settings.translation_mode)
-    
-    # Add speed indicators
-    translation_providers = []
-    for provider in translation_service.get_available_providers():
-        speed = "slow"
-        if provider in ["deepseek", "claude", "gpt4o"]:
-            speed = "fast"
-        elif provider == "nllb" and GPU_INFO["gpu_available"]:
-            speed = "medium"
-        
-        translation_providers.append({
-            "name": provider,
-            "speed": speed,
-            "cost": "free" if provider in ["nllb", "ollama"] else "paid"
-        })
     
     return {
         "mode": settings.translation_mode.value,
-        "gpu_available": GPU_INFO["gpu_available"],
         "ocr": {
             "available": ocr_service.get_available_providers(),
             "default": ocr_default.value
         },
         "translation": {
-            "available": translation_providers,
+            "available": translation_service.get_available_providers(),
             "default": trans_default.value
         }
     }
@@ -351,7 +208,9 @@ async def get_providers():
 @app.get("/api/v1/languages", tags=["Config"])
 async def get_languages():
     """Get supported languages."""
-    return {"languages": SUPPORTED_LANGUAGES}
+    return {
+        "languages": SUPPORTED_LANGUAGES
+    }
 
 
 @app.post("/api/v1/translate", response_model=TranslationResponse, tags=["Translation"])
@@ -363,7 +222,13 @@ async def translate_document(
     ocr_provider: Optional[str] = Form(None),
     translation_provider: Optional[str] = Form(None)
 ):
-    """Upload and translate a document."""
+    """
+    Upload and translate a document.
+    
+    - **file**: Document file (PDF, DOCX, images, etc.)
+    - **source_language**: Source language code (auto-detect if omitted)
+    - **target_language**: Target language code (default: en)
+    """
     max_size = settings.max_file_size_mb * 1024 * 1024
     job_id = str(uuid.uuid4())
     
@@ -384,19 +249,7 @@ async def translate_document(
             detail=f"File too large. Maximum size is {settings.max_file_size_mb}MB"
         )
     
-    # Determine time estimate based on provider
-    if translation_provider == "deepseek":
-        estimated_time = "1-3 minutes"
-    elif translation_provider == "claude":
-        estimated_time = "1-3 minutes"
-    elif translation_provider == "ollama":
-        estimated_time = f"5-15 minutes ({settings.ollama_model} - high accuracy)"
-    elif GPU_INFO["gpu_available"]:
-        estimated_time = "3-8 minutes"
-    else:
-        estimated_time = "15-30 minutes (CPU mode - consider using DeepSeek for faster results)"
-    
-    # Initialize job storage
+    # Initialize job storage with detailed tracking fields
     job_storage[job_id] = {
         "status": JobStatus.PENDING,
         "progress": 0,
@@ -404,14 +257,14 @@ async def translate_document(
         "filename": file.filename,
         "source_language": source_language,
         "target_language": target_language,
-        "translation_provider": translation_provider or "ollama",
         "created_at": datetime.utcnow().isoformat(),
         "input_path": str(input_path),
+        # Page-level tracking
         "current_page": 0,
         "total_pages": 0,
+        # Chunk-level tracking
         "processed_chunks": 0,
         "total_chunks": 0,
-        "gpu_available": GPU_INFO["gpu_available"],
     }
     
     background_tasks.add_task(
@@ -424,17 +277,23 @@ async def translate_document(
         translation_provider
     )
     
+    time_estimates = {
+        TranslationMode.SELF_HOSTED: "5-15 minutes",
+        TranslationMode.BUDGET: "3-8 minutes",
+        TranslationMode.PREMIUM: "2-5 minutes"
+    }
+    
     return TranslationResponse(
         job_id=job_id,
         message="Document uploaded. Translation started.",
-        estimated_time=estimated_time,
+        estimated_time=time_estimates.get(settings.translation_mode, "5-10 minutes"),
         mode=settings.translation_mode.value
     )
 
 
 @app.get("/api/v1/status/{job_id}", tags=["Translation"])
 async def get_job_status(job_id: str):
-    """Get the status of a translation job."""
+    """Get the status of a translation job with detailed progress."""
     if job_id not in job_storage:
         raise HTTPException(status_code=404, detail="Job not found")
     
@@ -448,15 +307,15 @@ async def get_job_status(job_id: str):
         "filename": job.get("filename"),
         "source_language": job.get("source_language"),
         "target_language": job.get("target_language", "en"),
-        "translation_provider": job.get("translation_provider"),
+        # Page-level progress
         "current_page": job.get("current_page", 0),
         "total_pages": job.get("total_pages", 0),
+        # Chunk-level progress
         "processed_chunks": job.get("processed_chunks", 0),
         "total_chunks": job.get("total_chunks", 0),
+        # Timestamps
         "created_at": job.get("created_at"),
         "completed_at": job.get("completed_at"),
-        "pages_translated": job.get("pages_translated", 0),
-        "pages_skipped": job.get("pages_skipped", 0),
     }
 
 
@@ -476,19 +335,12 @@ async def download_translation(job_id: str):
         raise HTTPException(status_code=404, detail="Output file not found")
     
     filename = job.get("filename", "translation")
-    
-    # Determine output filename based on file extension
-    if output_path.endswith('.docx'):
-        output_filename = f"{Path(filename).stem}_translated.docx"
-        media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    else:
-        output_filename = f"{Path(filename).stem}_translated.txt"
-        media_type = "text/plain"
+    output_filename = f"{Path(filename).stem}_translated.txt"
     
     return FileResponse(
         path=output_path,
         filename=output_filename,
-        media_type=media_type
+        media_type="text/plain"
     )
 
 

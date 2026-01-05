@@ -44,12 +44,12 @@ logger = structlog.get_logger()
 @dataclass
 class TranslationConfig:
     """Pipeline configuration."""
-    # Chunking - LARGER chunks since quality is proven excellent
-    toc_lines_per_chunk: int = 20          # Lines per TOC chunk (increased)
-    narrative_chars_per_chunk: int = 3000  # Chars per chunk (increased - 2310 worked perfectly)
+    # Chunking - LARGER chunks for speed (2310 worked perfectly, pushing to 5000)
+    toc_lines_per_chunk: int = 30          # Lines per TOC chunk
+    narrative_chars_per_chunk: int = 5000  # Chars per chunk (aggressive)
     
     # Timeouts
-    chunk_timeout: float = 180.0           # 3 minutes per chunk (larger chunks need more time)
+    chunk_timeout: float = 240.0           # 4 minutes per chunk (larger chunks)
     
     # Quality thresholds
     min_acceptable_accuracy: float = 0.30  # Accept 30%+ 
@@ -58,6 +58,9 @@ class TranslationConfig:
     # Retry
     max_chunk_retries: int = 1             # Only 1 retry
     retry_delay: float = 0.5               # Short delay
+    
+    # Parallelism - MILD parallelism (2 concurrent chunks)
+    max_parallel_chunks: int = 2           # Process 2 chunks at once
     
     def log_config(self):
         """Log all configuration values."""
@@ -238,7 +241,7 @@ class JobProcessor:
     - No Ollama queue timeouts
     """
 
-    OPTIMIZED_CHUNK_SIZE = 3000  # Larger chunks = fewer round trips = faster
+    OPTIMIZED_CHUNK_SIZE = 5000  # Larger chunks = fewer round trips = faster
     
     def __init__(self, db_session=None):
         self.settings = get_settings()
@@ -431,13 +434,11 @@ class JobProcessor:
         """
         start_time = time.time()
         
-        logger.info(f"    [CHUNK {chunk_index}] Starting translation...")
-        logger.info(f"    [CHUNK {chunk_index}] Input: {len(chunk)} chars, {count_cyrillic(chunk)} Cyrillic")
-        logger.info(f"    [CHUNK {chunk_index}] First 80 chars: {chunk[:80].replace(chr(10), ' ')}...")
+        # Minimal logging for speed
+        logger.debug(f"    [CHUNK {chunk_index}] Input: {len(chunk)} chars, {count_cyrillic(chunk)} Cyrillic")
         
         # Empty chunk handling
         if not chunk.strip():
-            logger.info(f"    [CHUNK {chunk_index}] Empty chunk, skipping")
             return ChunkResult(
                 chunk_index=chunk_index,
                 original_text="",
@@ -450,12 +451,9 @@ class JobProcessor:
         
         # Apply safe pre-replacements
         processed_chunk = self._apply_safe_replacements(chunk)
-        if processed_chunk != chunk:
-            logger.info(f"    [CHUNK {chunk_index}] Safe replacements applied: {len(chunk)} → {len(processed_chunk)} chars")
         
         # Check if translation needed
         if not self.translation_service.needs_translation(processed_chunk, target_lang):
-            logger.info(f"    [CHUNK {chunk_index}] No translation needed (already in target language)")
             return ChunkResult(
                 chunk_index=chunk_index,
                 original_text=chunk,
@@ -471,14 +469,11 @@ class JobProcessor:
         best_accuracy = 0.0
         attempts = 0
         
-        logger.info(f"    [CHUNK {chunk_index}] Calling translator (timeout={self.config.chunk_timeout}s, max_retries={self.config.max_chunk_retries})...")
-        
         for attempt in range(self.config.max_chunk_retries + 1):
             attempts = attempt + 1
-            logger.info(f"    [CHUNK {chunk_index}] Attempt {attempts}/{self.config.max_chunk_retries + 1}...")
             
             try:
-                # Translate with timeout - SEQUENTIAL (wait for result)
+                # Translate with timeout
                 call_start = time.time()
                 translated, _, _ = await asyncio.wait_for(
                     self.translation_service.translate_if_needed(
@@ -488,53 +483,31 @@ class JobProcessor:
                 )
                 call_duration = time.time() - call_start
                 
-                logger.info(f"    [CHUNK {chunk_index}] Translator returned in {call_duration:.1f}s")
-                logger.info(f"    [CHUNK {chunk_index}] Output: {len(translated) if translated else 0} chars")
-                
                 # Detect complete failure cases
                 if not translated or not translated.strip():
                     logger.warning(f"    [CHUNK {chunk_index}] ⚠️ EMPTY RESPONSE from translator!")
                     if attempt < self.config.max_chunk_retries:
-                        logger.info(f"    [CHUNK {chunk_index}] Waiting {self.config.retry_delay}s before retry...")
                         await asyncio.sleep(self.config.retry_delay)
                     continue
                 
                 # Check if returned text is identical to input (no translation)
                 if translated.strip() == processed_chunk.strip():
-                    logger.warning(f"    [CHUNK {chunk_index}] ⚠️ TRANSLATOR RETURNED ORIGINAL TEXT UNCHANGED!")
-                    logger.warning(f"    [CHUNK {chunk_index}] This means Ollama did NOT translate. Breaking retry loop.")
-                    # Don't retry - translator isn't working for this chunk
+                    logger.warning(f"[CHUNK {chunk_index}] Translator returned original unchanged!")
                     best_translated = processed_chunk
                     best_accuracy = 0.0
                     break
                 
                 # Calculate accuracy
                 accuracy = calculate_accuracy(chunk, translated)
-                remaining_cyrillic = count_cyrillic(translated)
-                
-                logger.info(f"    [CHUNK {chunk_index}] Accuracy: {accuracy:.0%} (Cyrillic: {count_cyrillic(chunk)} → {remaining_cyrillic})")
-                
-                # Log what we got
-                if accuracy == 0.0:
-                    logger.warning(
-                        f"    [CHUNK {chunk_index}] ⚠️ 0% ACCURACY - response still has all Cyrillic!"
-                    )
-                    logger.warning(f"    [CHUNK {chunk_index}] Response first 150 chars: {translated[:150].replace(chr(10), ' ')}...")
-                elif accuracy < self.config.min_acceptable_accuracy:
-                    logger.warning(f"    [CHUNK {chunk_index}] ⚠️ LOW ACCURACY: {accuracy:.0%} < {self.config.min_acceptable_accuracy:.0%} threshold")
                 
                 # Track best result
                 if accuracy > best_accuracy:
                     best_translated = translated
                     best_accuracy = accuracy
-                    logger.info(f"    [CHUNK {chunk_index}] New best accuracy: {best_accuracy:.0%}")
                 
                 # Check if good enough
                 if accuracy >= self.config.min_acceptable_accuracy:
                     elapsed = time.time() - start_time
-                    logger.info(f"    [CHUNK {chunk_index}] ✓ SUCCESS: {accuracy:.0%} >= {self.config.min_acceptable_accuracy:.0%} threshold")
-                    logger.info(f"    [CHUNK {chunk_index}] Total time: {elapsed:.1f}s, attempts: {attempts}")
-                    
                     return ChunkResult(
                         chunk_index=chunk_index,
                         original_text=chunk,
@@ -547,21 +520,16 @@ class JobProcessor:
                 
                 # Low accuracy - retry if attempts remain
                 if attempt < self.config.max_chunk_retries:
-                    logger.warning(
-                        f"    [CHUNK {chunk_index}] Accuracy {accuracy:.0%} below threshold, retrying..."
-                    )
+                    logger.warning(f"[CHUNK {chunk_index}] {accuracy:.0%} accuracy, retrying...")
                     await asyncio.sleep(self.config.retry_delay)
                 
             except asyncio.TimeoutError:
-                logger.error(f"    [CHUNK {chunk_index}] ⚠️ TIMEOUT after {self.config.chunk_timeout}s (attempt {attempts})")
+                logger.error(f"[CHUNK {chunk_index}] TIMEOUT after {self.config.chunk_timeout}s")
                 if attempt < self.config.max_chunk_retries:
-                    logger.info(f"    [CHUNK {chunk_index}] Will retry after {self.config.retry_delay}s...")
                     await asyncio.sleep(self.config.retry_delay)
                     
             except Exception as e:
-                logger.error(f"    [CHUNK {chunk_index}] ⚠️ ERROR: {e}")
-                import traceback
-                logger.error(f"    [CHUNK {chunk_index}] Traceback: {traceback.format_exc()}")
+                logger.error(f"[CHUNK {chunk_index}] ERROR: {e}")
                 if attempt < self.config.max_chunk_retries:
                     await asyncio.sleep(self.config.retry_delay)
         
@@ -569,11 +537,8 @@ class JobProcessor:
         elapsed = time.time() - start_time
         success = best_accuracy >= self.config.min_acceptable_accuracy
         
-        logger.warning(f"    [CHUNK {chunk_index}] === FINAL RESULT ===")
-        logger.warning(f"    [CHUNK {chunk_index}] Accuracy: {best_accuracy:.0%}")
-        logger.warning(f"    [CHUNK {chunk_index}] Attempts: {attempts}")
-        logger.warning(f"    [CHUNK {chunk_index}] Time: {elapsed:.1f}s")
-        logger.warning(f"    [CHUNK {chunk_index}] Success: {success}")
+        if not success:
+            logger.warning(f"[CHUNK {chunk_index}] Final: {best_accuracy:.0%} in {elapsed:.1f}s (FAILED)")
         
         return ChunkResult(
             chunk_index=chunk_index,
@@ -594,28 +559,12 @@ class JobProcessor:
         provider: Optional[TranslationProvider]
     ) -> PageResult:
         """
-        Translate a full page by processing chunks SEQUENTIALLY.
-        
-        Flow:
-        1. Pre-process (deduplicate, apply replacements)
-        2. Chunk the page
-        3. For each chunk (SEQUENTIAL):
-           - Translate chunk → WAIT for result
-           - Validate accuracy
-           - Move to next chunk only after completion
-        4. Concatenate all translated chunks
-        5. Return page result with metrics
+        Translate a full page by processing chunks with mild parallelism.
         """
         start_time = time.time()
         
-        logger.info("=" * 50)
-        logger.info(f"PAGE {page_number}: Starting translation")
-        logger.info(f"  Original text length: {len(page_text)} chars")
-        logger.info(f"  Cyrillic chars in original: {count_cyrillic(page_text)}")
-        
         # Handle empty pages
         if not page_text.strip():
-            logger.info(f"PAGE {page_number}: Empty page, skipping")
             return PageResult(
                 page_number=page_number,
                 chunks=[],
@@ -625,16 +574,12 @@ class JobProcessor:
             )
         
         # Pre-process: deduplicate bilingual content
-        original_len = len(page_text)
         processed_text = self._deduplicate_bilingual(page_text, target_lang)
-        if len(processed_text) != original_len:
-            logger.info(f"PAGE {page_number}: Deduplicated {original_len} → {len(processed_text)} chars")
         
         # Chunk the page (CPU operation, instant)
         chunks = self.chunker.chunk_page(processed_text)
         
         if not chunks:
-            logger.warning(f"PAGE {page_number}: No chunks created from text")
             return PageResult(
                 page_number=page_number,
                 chunks=[],
@@ -643,35 +588,32 @@ class JobProcessor:
                 total_time=0.0
             )
         
-        # Log chunk details
-        logger.info(f"PAGE {page_number}: Created {len(chunks)} chunks:")
-        for i, chunk in enumerate(chunks):
-            cyrillic_count = count_cyrillic(chunk)
-            logger.info(f"  Chunk {i}: {len(chunk)} chars, {cyrillic_count} Cyrillic")
+        logger.info(f"PAGE {page_number}: {len(chunks)} chunks, {count_cyrillic(page_text)} Cyrillic")
         
-        # Translate chunks ONE BY ONE (sequential!)
+        # Translate chunks with MILD PARALLELISM
         chunk_results: List[ChunkResult] = []
         translated_texts: List[str] = []
         
-        for i, chunk in enumerate(chunks):
-            logger.info(f"PAGE {page_number} CHUNK {i+1}/{len(chunks)}: Starting translation...")
-            logger.info(f"  Input: {len(chunk)} chars, {count_cyrillic(chunk)} Cyrillic")
+        batch_size = self.config.max_parallel_chunks
+        
+        for batch_start in range(0, len(chunks), batch_size):
+            batch_end = min(batch_start + batch_size, len(chunks))
+            batch_chunks = chunks[batch_start:batch_end]
+            batch_indices = list(range(batch_start, batch_end))
             
-            # SEQUENTIAL: Wait for each chunk to complete before starting next
-            result = await self._translate_single_chunk(
-                chunk, i, source_lang, target_lang, provider
-            )
+            # Create tasks for this batch
+            tasks = [
+                self._translate_single_chunk(chunk, idx, source_lang, target_lang, provider)
+                for idx, chunk in zip(batch_indices, batch_chunks)
+            ]
             
-            chunk_results.append(result)
-            translated_texts.append(result.translated_text)
+            # Run batch in parallel
+            batch_results = await asyncio.gather(*tasks)
             
-            # Log detailed chunk result
-            logger.info(
-                f"PAGE {page_number} CHUNK {i+1}/{len(chunks)}: DONE - "
-                f"{result.accuracy:.0%} accuracy, {result.time_taken:.1f}s, "
-                f"attempts={result.attempts}, success={result.success}"
-            )
-            logger.info(f"  Output: {len(result.translated_text)} chars, {count_cyrillic(result.translated_text)} Cyrillic remaining")
+            # Collect results in order
+            for result in batch_results:
+                chunk_results.append(result)
+                translated_texts.append(result.translated_text)
         
         # Concatenate all translated chunks
         final_text = '\n\n'.join(translated_texts)
@@ -695,15 +637,9 @@ class JobProcessor:
             total_time=total_time
         )
         
-        # Log page completion summary
+        # Single-line summary
         successful_chunks = sum(1 for r in chunk_results if r.success)
-        logger.info("=" * 50)
-        logger.info(f"PAGE {page_number}: COMPLETE")
-        logger.info(f"  Overall accuracy: {overall_accuracy:.0%}")
-        logger.info(f"  Chunks: {successful_chunks}/{len(chunks)} successful")
-        logger.info(f"  Cyrillic: {total_orig_cyrillic} → {total_remaining} ({total_remaining} remaining)")
-        logger.info(f"  Time: {total_time:.1f}s")
-        logger.info("=" * 50)
+        logger.info(f"PAGE {page_number}: ✓ {overall_accuracy:.0%} accuracy, {successful_chunks}/{len(chunks)} chunks, {total_time:.1f}s")
         
         return page_result
 
@@ -1100,35 +1036,17 @@ Low quality pages (50-90%): {low_quality_pages if low_quality_pages else 'None'}
             
             trans_prov = TranslationProvider(translation_provider) if translation_provider else None
             
-            # ===== STEP 4: TRANSLATE PAGES SEQUENTIALLY =====
-            logger.info("=" * 70)
-            logger.info("STARTING SEQUENTIAL PAGE TRANSLATION")
-            logger.info(f"  Total pages to translate: {total_to_translate}")
-            logger.info(f"  Chunk size: {self.config.narrative_chars_per_chunk} chars")
-            logger.info(f"  Timeout per chunk: {self.config.chunk_timeout}s")
-            logger.info(f"  Max retries: {self.config.max_chunk_retries}")
-            logger.info(f"  Min acceptable accuracy: {self.config.min_acceptable_accuracy:.0%}")
-            logger.info("=" * 70)
+            # ===== STEP 4: TRANSLATE PAGES =====
+            logger.info(f"Starting translation: {total_to_translate} pages, {self.config.narrative_chars_per_chunk} chars/chunk, {self.config.max_parallel_chunks}x parallel")
             
             for i, (idx, page_text) in enumerate(pages_to_translate):
-                logger.info(f"\n>>> TRANSLATING PAGE {i+1}/{total_to_translate} (page index {idx+1}) <<<\n")
-                
-                # Translate this page (chunks processed sequentially within)
+                # Translate this page
                 page_result = await self._translate_page_sequential(
                     page_text, idx + 1, source_lang, target_lang, trans_prov
                 )
                 
                 translated_results[idx] = page_result.final_text
                 self.page_results[idx + 1] = page_result
-                
-                # Log progress summary
-                elapsed_pages = i + 1
-                remaining_pages = total_to_translate - elapsed_pages
-                avg_time = page_result.total_time
-                eta = remaining_pages * avg_time
-                
-                logger.info(f">>> PAGE {i+1}/{total_to_translate} DONE: {page_result.overall_accuracy:.0%} in {page_result.total_time:.1f}s <<<")
-                logger.info(f"    Remaining: {remaining_pages} pages, ETA: ~{eta:.0f}s")
                 
                 # Progress update
                 progress = 25 + (65 * (i + 1) / max(total_to_translate, 1))
@@ -1140,9 +1058,7 @@ Low quality pages (50-90%): {low_quality_pages if low_quality_pages else 'None'}
                         {"page": idx + 1, "accuracy": page_result.overall_accuracy}
                     )
             
-            logger.info("=" * 70)
-            logger.info("TRANSLATION PHASE COMPLETE")
-            logger.info("=" * 70)
+            logger.info("Translation phase complete")
             
             # Reconstruct in order
             translated_pages = [translated_results.get(i, "") for i in range(page_count)]

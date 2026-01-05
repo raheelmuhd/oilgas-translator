@@ -8,6 +8,8 @@
     "safety": "Health, Safety, and Environment (HSE)",
     "equipment": "Equipment and machinery",
     "geology": "Geological terms",
+    "stratigraphy": "Stratigraphy and geological periods",
+    "abbreviations": "Common abbreviations in Ukrainian geology",
     "economics": "Financial and economic terms"
   },
   "terms": [
@@ -569,6 +571,519 @@
         "zh": "产量分成合同",
         "fr": "Contrat de partage de production (PSC)",
         "de": "Produktionsbeteiligungsvertrag (PSC)"
+      }
+    },
+    {
+      "id": "riphean",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Riphean",
+        "uk": "рифейський",
+        "ru": "рифейский"
+      }
+    },
+    {
+      "id": "vendian",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Vendian",
+        "uk": "вендський",
+        "ru": "вендский"
+      }
+    },
+    {
+      "id": "proterozoic",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Proterozoic",
+        "uk": "протерозойський",
+        "ru": "протерозойский"
+      }
+    },
+    {
+      "id": "archean",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Archean",
+        "uk": "архейський",
+        "ru": "архейский"
+      }
+    },
+    {
+      "id": "paleozoic",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Paleozoic",
+        "uk": "палеозойський",
+        "ru": "палеозойский"
+      }
+    },
+    {
+      "id": "mesozoic",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Mesozoic",
+        "uk": "мезозойський",
+        "ru": "мезозойский"
+      }
+    },
+    {
+      "id": "cenozoic",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Cenozoic",
+        "uk": "кайнозойський",
+        "ru": "кайнозойский"
+      }
+    },
+    {
+      "id": "cambrian",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Cambrian",
+        "uk": "кембрійський",
+        "ru": "кембрийский"
+      }
+    },
+    {
+      "id": "ordovician",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Ordovician",
+        "uk": "ордовицький",
+        "ru": "ордовикский"
+      }
+    },
+    {
+      "id": "silurian",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Silurian",
+        "uk": "силурійський",
+        "ru": "силурийский"
+      }
+    },
+    {
+      "id": "devonian",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Devonian",
+        "uk": "девонський",
+        "ru": "девонский"
+      }
+    },
+    {
+      "id": "carboniferous",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Carboniferous",
+        "uk": "карбоновий",
+        "ru": "каменноугольный"
+      }
+    },
+    {
+      "id": "permian",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Permian",
+        "uk": "пермський",
+        "ru": "пермский"
+      }
+    },
+    {
+      "id": "triassic",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Triassic",
+        "uk": "тріасовий",
+        "ru": "триасовый"
+      }
+    },
+    {
+      "id": "jurassic",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Jurassic",
+        "uk": "юрський",
+        "ru": "юрский"
+      }
+    },
+    {
+      "id": "cretaceous",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Cretaceous",
+        "uk": "крейдовий",
+        "ru": "меловой"
+      }
+    },
+    {
+      "id": "erathem",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Erathem",
+        "uk": "ератема",
+        "ru": "эратема"
+      }
+    },
+    {
+      "id": "iss",
+      "category": "abbreviations",
+      "translations": {
+        "en": "International Stratigraphic Scale (ISS)",
+        "uk": "МСШ (Міжнародна стратиграфічна шкала)",
+        "ru": "МСШ (Международная стратиграфическая шкала)"
+      }
+    },
+    {
+      "id": "vkm",
+      "category": "abbreviations",
+      "translations": {
+        "en": "Voronezh Crystalline Massif (VCM)",
+        "uk": "ВКМ (Воронезький кристалічний масив)",
+        "ru": "ВКМ (Воронежский кристаллический массив)"
+      }
+    },
+    {
+      "id": "ukrainian_shield",
+      "category": "geology",
+      "translations": {
+        "en": "Ukrainian Shield",
+        "uk": "Український щит",
+        "ru": "Украинский щит"
+      }
+    },
+    {
+      "id": "crystalline_basement",
+      "category": "geology",
+      "translations": {
+        "en": "crystalline basement",
+        "uk": "кристалічний фундамент",
+        "ru": "кристаллический фундамент"
+      }
+    },
+    {
+      "id": "sedimentary_cover",
+      "category": "geology",
+      "translations": {
+        "en": "sedimentary cover",
+        "uk": "осадовий чохол",
+        "ru": "осадочный чехол"
+      }
+    },
+    {
+      "id": "stratigraphic_unit",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "stratigraphic unit",
+        "uk": "стратиграфічний підрозділ",
+        "ru": "стратиграфическое подразделение"
+      }
+    },
+    {
+      "id": "lithostratigraphy",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "lithostratigraphy",
+        "uk": "літостратиграфія",
+        "ru": "литостратиграфия"
+      }
+    },
+    {
+      "id": "biostratigraphy",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "biostratigraphy",
+        "uk": "біостратиграфія",
+        "ru": "биостратиграфия"
+      }
+    },
+    {
+      "id": "chronostratigraphy",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "chronostratigraphy",
+        "uk": "хроностратиграфія",
+        "ru": "хроностратиграфия"
+      }
+    },
+    {
+      "id": "geological_system",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "System",
+        "uk": "система",
+        "ru": "система"
+      }
+    },
+    {
+      "id": "series",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Series",
+        "uk": "серія",
+        "ru": "серия"
+      }
+    },
+    {
+      "id": "stage",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Stage",
+        "uk": "ярус",
+        "ru": "ярус"
+      }
+    },
+    {
+      "id": "horizon",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Horizon",
+        "uk": "горизонт",
+        "ru": "горизонт"
+      }
+    },
+    {
+      "id": "suite",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Suite",
+        "uk": "світа",
+        "ru": "свита"
+      }
+    },
+    {
+      "id": "formation_geo",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Formation",
+        "uk": "формація",
+        "ru": "формация"
+      }
+    },
+    {
+      "id": "quaternary",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Quaternary",
+        "uk": "четвертинний",
+        "ru": "четвертичный"
+      }
+    },
+    {
+      "id": "neogene",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Neogene",
+        "uk": "неогеновий",
+        "ru": "неогеновый"
+      }
+    },
+    {
+      "id": "paleogene",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Paleogene",
+        "uk": "палеогеновий",
+        "ru": "палеогеновый"
+      }
+    },
+    {
+      "id": "riphean_period",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Riphean",
+        "uk": "рифей",
+        "ru": "рифей"
+      }
+    },
+    {
+      "id": "riphean_adj",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Riphean",
+        "uk": "рифейський",
+        "ru": "рифейский"
+      }
+    },
+    {
+      "id": "riphean_strat",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Stratigraphy of the Riphean",
+        "uk": "Стратиграфія рифею",
+        "ru": "Стратиграфия рифея"
+      }
+    },
+    {
+      "id": "kovel_city",
+      "category": "geography",
+      "translations": {
+        "en": "Kovel",
+        "uk": "Ковель",
+        "ru": "Ковель"
+      }
+    },
+    {
+      "id": "kovel_adj",
+      "category": "geography",
+      "translations": {
+        "en": "Kovel",
+        "uk": "Ковельський",
+        "ru": "Ковельский"
+      }
+    },
+    {
+      "id": "fore_dobruja",
+      "category": "geography",
+      "translations": {
+        "en": "Fore-Dobruja",
+        "uk": "Переддобрудзький",
+        "ru": "Преддобруджский"
+      }
+    },
+    {
+      "id": "dobruja_trough",
+      "category": "geography",
+      "translations": {
+        "en": "Fore-Dobruja Trough",
+        "uk": "Переддобрудзький прогин",
+        "ru": "Преддобруджский прогиб"
+      }
+    },
+    {
+      "id": "black_sea_region",
+      "category": "geography",
+      "translations": {
+        "en": "Black Sea Region",
+        "uk": "Причорномор'я",
+        "ru": "Причерноморье"
+      }
+    },
+    {
+      "id": "western_black_sea",
+      "category": "geography",
+      "translations": {
+        "en": "Western Black Sea Region",
+        "uk": "Західне Причорномор'я",
+        "ru": "Западное Причерноморье"
+      }
+    },
+    {
+      "id": "volyn_polissia",
+      "category": "geography",
+      "translations": {
+        "en": "Volyn-Polissia",
+        "uk": "Волино-Поліський",
+        "ru": "Волыно-Полесский"
+      }
+    },
+    {
+      "id": "volyn_polissia_trough",
+      "category": "geography",
+      "translations": {
+        "en": "Volyn-Polissia Trough",
+        "uk": "Волино-Поліський прогин",
+        "ru": "Волыно-Полесский прогиб"
+      }
+    },
+    {
+      "id": "ovruch",
+      "category": "geography",
+      "translations": {
+        "en": "Ovruch",
+        "uk": "Овруцький",
+        "ru": "Овручский"
+      }
+    },
+    {
+      "id": "ovruch_paleorift",
+      "category": "geology",
+      "translations": {
+        "en": "Ovruch Paleorift",
+        "uk": "Овруцький палеорифт",
+        "ru": "Овручский палеорифт"
+      }
+    },
+    {
+      "id": "dnieper_donets",
+      "category": "geography",
+      "translations": {
+        "en": "Dnieper-Donets",
+        "uk": "Дніпровсько-Донецький",
+        "ru": "Днепровско-Донецкий"
+      }
+    },
+    {
+      "id": "dnieper_donets_depression",
+      "category": "geography",
+      "translations": {
+        "en": "Dnieper-Donets Depression",
+        "uk": "Дніпровсько-Донецька западина",
+        "ru": "Днепровско-Донецкая впадина"
+      }
+    },
+    {
+      "id": "trough_geo",
+      "category": "geology",
+      "translations": {
+        "en": "trough",
+        "uk": "прогин",
+        "ru": "прогиб"
+      }
+    },
+    {
+      "id": "depression_geo",
+      "category": "geology",
+      "translations": {
+        "en": "depression",
+        "uk": "западина",
+        "ru": "впадина"
+      }
+    },
+    {
+      "id": "syncline_geo",
+      "category": "geology",
+      "translations": {
+        "en": "syncline",
+        "uk": "синкліналь",
+        "ru": "синклиналь"
+      }
+    },
+    {
+      "id": "phanerozoic",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Phanerozoic",
+        "uk": "фанерозой",
+        "ru": "фанерозой"
+      }
+    },
+    {
+      "id": "phanerozoic_adj",
+      "category": "stratigraphy",
+      "translations": {
+        "en": "Phanerozoic",
+        "uk": "фанерозойський",
+        "ru": "фанерозойский"
+      }
+    },
+    {
+      "id": "int_strat_scale",
+      "category": "abbreviations",
+      "translations": {
+        "en": "International Stratigraphic Chart (ISC)",
+        "uk": "Міжнародна стратиграфічна шкала (МСШ)",
+        "ru": "Международная стратиграфическая шкала (МСШ)"
+      }
+    },
+    {
+      "id": "msh_abbrev",
+      "category": "abbreviations",
+      "translations": {
+        "en": "ISC",
+        "uk": "МСШ",
+        "ru": "МСШ"
       }
     }
   ]

@@ -117,26 +117,45 @@ class HealthResponse(BaseModel):
 
 # Language mappings for NLLB
 NLLB_LANGUAGE_CODES = {
+    # Common targets
     "en": "eng_Latn",
+
+    # Romance / Germanic
     "es": "spa_Latn",
-    "ar": "arb_Arab",
     "pt": "por_Latn",
-    "ru": "rus_Cyrl",
-    "zh": "zho_Hans",
     "fr": "fra_Latn",
     "de": "deu_Latn",
     "it": "ita_Latn",
-    "ja": "jpn_Jpan",
-    "ko": "kor_Hang",
+    "nl": "nld_Latn",
+    "sv": "swe_Latn",
+    "fi": "fin_Latn",
+    "da": "dan_Latn",
+    "no": "nob_Latn",
+    "pl": "pol_Latn",
+    "cs": "ces_Latn",
+    "ro": "ron_Latn",
+    "hu": "hun_Latn",
+
+    # Cyrillic / Slavic
+    "ru": "rus_Cyrl",
+    "uk": "ukr_Cyrl",
+    "bg": "bul_Cyrl",
+    "sr": "srp_Cyrl",
+
+    # Other major scripts
+    "ar": "arb_Arab",
+    "fa": "pes_Arab",
+    "ur": "urd_Arab",
+    "he": "heb_Hebr",
+    "el": "ell_Grek",
     "hi": "hin_Deva",
     "tr": "tur_Latn",
-    "nl": "nld_Latn",
-    "pl": "pol_Latn",
-    "uk": "ukr_Cyrl",
+    "zh": "zho_Hans",
+    "ja": "jpn_Jpan",
+    "ko": "kor_Hang",
     "vi": "vie_Latn",
     "th": "tha_Thai",
     "id": "ind_Latn",
-    "ms": "zsm_Latn",
 }
 
 

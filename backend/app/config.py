@@ -1,6 +1,6 @@
 """
 Configuration management for the Oil & Gas Document Translator.
-Supports three modes: SELF_HOSTED (free), BUDGET, and PREMIUM.
+UPDATED with accuracy-optimized NLLB settings.
 """
 
 from enum import Enum
@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     app_name: str = "Oil & Gas Document Translator"
     app_version: str = "1.0.0"
     debug: bool = False
+
+    # Debugging / instrumentation
+    debug_translation: bool = False
+    debug_output_dir: str = "./debug"
+    debug_max_chars_per_page: int = 200000
     
     # Mode selection
     translation_mode: TranslationMode = TranslationMode.SELF_HOSTED
@@ -45,7 +50,12 @@ class Settings(BaseSettings):
     # Server settings
     host: str = "0.0.0.0"
     port: int = 8000
-    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: list[str] = [
+        "http://localhost:3000", 
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001"
+    ]
     
     # File handling
     max_file_size_mb: int = 600
@@ -74,14 +84,31 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     deepseek_model: str = "deepseek-chat"
     
-    # Ollama (Self-hosted alternative)
+    # Ollama (Self-hosted - PRIMARY FREE OPTION)
+    # Using qwen3:8b for high-quality translation with excellent structure preservation
+    # Simple prompt works best: "Can you translate this to English:"
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3.2:3b"
+    ollama_model: str = "qwen3:8b"
+    ollama_max_concurrent: int = 4  # Max concurrent chunk translations
     
-    # NLLB Settings (Free translation model)
-    nllb_model: str = "facebook/nllb-200-distilled-600M"
-    nllb_device: str = "cpu"  # Use CPU by default
-    nllb_batch_size: int = 4
+    # ==========================================================================
+    # NLLB Settings - ACCURACY OPTIMIZED
+    # ==========================================================================
+    # 
+    # Model options (set via NLLB_MODEL in .env):
+    #   facebook/nllb-200-distilled-600M  - Fast, 60-70% accuracy, 2GB VRAM
+    #   facebook/nllb-200-1.3B            - Medium, 80-85% accuracy, 4GB VRAM (RECOMMENDED)
+    #   facebook/nllb-200-3.3B            - Slow, 90%+ accuracy, 10GB VRAM
+    #
+    nllb_model: str = "facebook/nllb-200-1.3B"  # CHANGED: Default to 1.3B for better quality
+    nllb_device: str = "cuda"  # CHANGED: Default to GPU (auto-fallback to CPU)
+    
+    # Quality vs Speed settings
+    nllb_batch_size: int = 2  # Lower = more accurate, higher = faster
+    nllb_max_input_tokens: int = 512  # Max tokens per chunk (512 is safe)
+    nllb_max_new_tokens: int = 400  # Max output tokens per chunk
+    nllb_num_beams: int = 5  # CHANGED: Higher beams = better quality (was 4)
+    nllb_no_repeat_ngram_size: int = 3  # Prevents repetition
     
     # Processing settings
     chunk_size: int = 1000  # Characters per translation chunk
@@ -111,4 +138,3 @@ def get_providers_for_mode(mode: TranslationMode) -> tuple[OCRProvider, Translat
         TranslationMode.PREMIUM: (OCRProvider.AZURE, TranslationProvider.CLAUDE),
     }
     return providers[mode]
-
