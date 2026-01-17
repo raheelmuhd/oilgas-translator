@@ -59,12 +59,30 @@ class OllamaTranslator(BaseTranslator):
         try:
             response = httpx.get(f"{self.settings.ollama_base_url}/api/tags", timeout=5)
             if response.status_code == 200:
-                models = response.json().get("models", [])
-                model_names = [m.get("name", "") for m in models]
+                data = response.json()
+                # Ollama API can return either:
+                # - {"models": [...]} (dict format)
+                # - [...] (list format directly)
+                if isinstance(data, dict):
+                    models = data.get("models", [])
+                elif isinstance(data, list):
+                    models = data
+                else:
+                    models = []
+                
+                # Extract model names - handle both dict and list formats
+                model_names = []
+                for m in models:
+                    if isinstance(m, dict):
+                        model_names.append(m.get("name", ""))
+                    elif isinstance(m, str):
+                        model_names.append(m)
+                
                 self._available = any(self.settings.ollama_model in name for name in model_names)
             else:
                 self._available = False
-        except:
+        except Exception as e:
+            logger.warning(f"Ollama availability check failed: {e}")
             self._available = False
         return self._available
 
@@ -177,8 +195,8 @@ class OllamaTranslator(BaseTranslator):
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
                         "options": {
-                            "temperature": 0.2,
-                            "num_predict": 2000,
+                            "temperature": 0.1,      # Lower = faster, still accurate
+                            "num_predict": 1500,      # Reduced for speed (was 2000)
                             "num_ctx": 4096,
                         }
                     }
@@ -293,8 +311,8 @@ class OllamaTranslator(BaseTranslator):
                         "messages": [{"role": "user", "content": prompt}],
                         "stream": False,
                         "options": {
-                            "temperature": 0.2,
-                            "num_predict": 2000,
+                            "temperature": 0.1,      # Lower = faster, still accurate
+                            "num_predict": 1500,      # Reduced for speed (was 2000)
                             "num_ctx": 4096,
                         }
                     }

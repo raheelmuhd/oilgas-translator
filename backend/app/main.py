@@ -1,5 +1,5 @@
 """
-Oil & Gas Document Translator - FastAPI Backend
+Document Translator - FastAPI Backend
 With GPU detection and provider switching support.
 """
 
@@ -38,6 +38,14 @@ from app.models import (
 from app.services.job_processor import JobProcessor
 from app.services.ocr_service import OCRService
 from app.services.translation_service import TranslationService
+from app.utils.security import SecurityHeadersMiddleware, sanitize_filename
+from app.utils.validators import (
+    validate_device,
+    validate_file_extension,
+    validate_file_size,
+    validate_file_content,
+    validate_language_code,
+)
 
 # Configure logging
 structlog.configure(
@@ -85,7 +93,7 @@ GPU_INFO = detect_gpu()
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
     logger.info(
-        "Starting Oil & Gas Document Translator", 
+        "Starting Document Translator", 
         mode=settings.translation_mode.value,
         gpu_available=GPU_INFO["gpu_available"],
         device=GPU_INFO["using_device"]
@@ -104,9 +112,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="Production-grade document translation for the oil & gas industry",
+    description="Production-grade document translation service",
     lifespan=lifespan
 )
+
+# Security headers middleware (add first)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS middleware
 app.add_middleware(
@@ -166,10 +177,12 @@ async def process_document(
     source_lang: Optional[str],
     target_lang: str,
     ocr_provider: Optional[str],
-    translation_provider: Optional[str]
+    translation_provider: Optional[str],
+    device: str = "auto"
 ):
     """Background task to process document."""
     try:
+        # Device is validated in the endpoint - actual GPU usage is determined by provider
         result = await job_processor.process_job(
             job_id=job_id,
             input_path=input_path,
@@ -278,8 +291,12 @@ async def get_system_info():
             speed_warning = "No GPU detected. NLLB will run on CPU (VERY SLOW). Strongly recommend setting DEEPSEEK_API_KEY for faster translation (~$0.01 per page)."
             recommendation_reason = "No GPU - NLLB will be very slow on CPU"
 
+    # Device recommendation: suggest GPU if available, otherwise CPU
+    device_recommendation = "gpu" if GPU_INFO["gpu_available"] else "cpu"
+    
     return {
         "gpu": GPU_INFO,
+        "device_recommendation": device_recommendation,
         "providers": {
             "ollama": {
                 "available": ollama_available,
@@ -361,75 +378,139 @@ async def translate_document(
     source_language: Optional[str] = Form(None),
     target_language: str = Form("en"),
     ocr_provider: Optional[str] = Form(None),
-    translation_provider: Optional[str] = Form(None)
+    translation_provider: Optional[str] = Form(None),
+    device: Optional[str] = Form("auto")
 ):
-    """Upload and translate a document."""
-    max_size = settings.max_file_size_mb * 1024 * 1024
-    job_id = str(uuid.uuid4())
+    """
+    Upload and translate a document.
     
-    upload_dir = Path(settings.upload_dir)
-    file_ext = Path(file.filename).suffix
-    input_path = upload_dir / f"{job_id}{file_ext}"
-    
+    Args:
+        file: Document file to translate (PDF, DOCX, images)
+        source_language: Source language code (auto-detect if not provided)
+        target_language: Target language code (default: "en")
+        ocr_provider: OCR provider to use (optional)
+        translation_provider: Translation provider to use (optional)
+        device: Processing device ("cpu", "gpu", or "auto")
+        
+    Returns:
+        TranslationResponse with job_id and estimated time
+    """
     try:
-        with open(input_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
-    
-    if input_path.stat().st_size > max_size:
-        input_path.unlink()
-        raise HTTPException(
-            status_code=413, 
-            detail=f"File too large. Maximum size is {settings.max_file_size_mb}MB"
+        # Validate device selection
+        device = validate_device(device or "auto")
+        
+        # If GPU is requested but not available, reject or suggest alternatives
+        if device == "gpu" and not GPU_INFO["gpu_available"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "GPU requested but not available",
+                    "gpu_available": False,
+                    "suggestion": "Please select 'cpu' device or use DeepSeek API for faster results",
+                    "alternatives": ["cpu", "deepseek"]
+                }
+            )
+        
+        # Auto-select device: use GPU if available, otherwise CPU
+        if device == "auto":
+            device = "gpu" if GPU_INFO["gpu_available"] else "cpu"
+        
+        # Validate file
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Filename is required")
+        
+        # Sanitize filename to prevent path traversal attacks
+        safe_filename = sanitize_filename(file.filename)
+        file_ext = validate_file_extension(safe_filename)
+        
+        # Validate language codes
+        if source_language:
+            source_language = validate_language_code(source_language, set(SUPPORTED_LANGUAGES.keys()))
+        target_language = validate_language_code(target_language, set(SUPPORTED_LANGUAGES.keys()))
+        
+        # Save file
+        job_id = str(uuid.uuid4())
+        upload_dir = Path(settings.upload_dir)
+        input_path = upload_dir / f"{job_id}{file_ext}"
+        
+        try:
+            # Save file
+            with open(input_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+        except IOError as e:
+            logger.error("File save error", error=str(e), filename=safe_filename)
+            raise HTTPException(status_code=500, detail="Failed to save uploaded file")
+        
+        # Validate file size
+        file_size = input_path.stat().st_size
+        validate_file_size(file_size, settings.max_file_size_mb)
+        
+        # Validate file content (basic check)
+        try:
+            validate_file_content(input_path, file_ext)
+        except HTTPException:
+            # Clean up invalid file
+            try:
+                input_path.unlink()
+            except Exception:
+                pass
+            raise
+        
+        # Determine time estimate based on provider
+        if translation_provider == "deepseek":
+            estimated_time = "1-3 minutes"
+        elif translation_provider == "claude":
+            estimated_time = "1-3 minutes"
+        elif translation_provider == "ollama":
+            estimated_time = f"5-15 minutes ({settings.ollama_model} - high accuracy)"
+        elif GPU_INFO["gpu_available"]:
+            estimated_time = "3-8 minutes"
+        else:
+            estimated_time = "15-30 minutes (CPU mode - consider using DeepSeek for faster results)"
+        
+        # Initialize job storage
+        job_storage[job_id] = {
+            "status": JobStatus.PENDING,
+            "progress": 0,
+            "message": "Document uploaded. Starting processing...",
+            "filename": safe_filename,
+            "source_language": source_language,
+            "target_language": target_language,
+            "translation_provider": translation_provider or "ollama",
+            "device": device,
+            "created_at": datetime.utcnow().isoformat(),
+            "input_path": str(input_path),
+            "current_page": 0,
+            "total_pages": 0,
+            "processed_chunks": 0,
+            "total_chunks": 0,
+            "gpu_available": GPU_INFO["gpu_available"],
+        }
+        
+        background_tasks.add_task(
+            process_document,
+            job_id,
+            str(input_path),
+            source_language,
+            target_language,
+            ocr_provider,
+            translation_provider,
+            device
         )
-    
-    # Determine time estimate based on provider
-    if translation_provider == "deepseek":
-        estimated_time = "1-3 minutes"
-    elif translation_provider == "claude":
-        estimated_time = "1-3 minutes"
-    elif translation_provider == "ollama":
-        estimated_time = f"5-15 minutes ({settings.ollama_model} - high accuracy)"
-    elif GPU_INFO["gpu_available"]:
-        estimated_time = "3-8 minutes"
-    else:
-        estimated_time = "15-30 minutes (CPU mode - consider using DeepSeek for faster results)"
-    
-    # Initialize job storage
-    job_storage[job_id] = {
-        "status": JobStatus.PENDING,
-        "progress": 0,
-        "message": "Document uploaded. Starting processing...",
-        "filename": file.filename,
-        "source_language": source_language,
-        "target_language": target_language,
-        "translation_provider": translation_provider or "ollama",
-        "created_at": datetime.utcnow().isoformat(),
-        "input_path": str(input_path),
-        "current_page": 0,
-        "total_pages": 0,
-        "processed_chunks": 0,
-        "total_chunks": 0,
-        "gpu_available": GPU_INFO["gpu_available"],
-    }
-    
-    background_tasks.add_task(
-        process_document,
-        job_id,
-        str(input_path),
-        source_language,
-        target_language,
-        ocr_provider,
-        translation_provider
-    )
-    
-    return TranslationResponse(
-        job_id=job_id,
-        message="Document uploaded. Translation started.",
-        estimated_time=estimated_time,
-        mode=settings.translation_mode.value
-    )
+        
+        return TranslationResponse(
+            job_id=job_id,
+            message="Document uploaded. Translation started.",
+            estimated_time=estimated_time,
+            mode=settings.translation_mode.value
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions (validation errors, etc.)
+        raise
+    except Exception as e:
+        # Handle unexpected errors
+        logger.error("Unexpected error in translate_document", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @app.get("/api/v1/status/{job_id}", tags=["Translation"])
@@ -449,6 +530,7 @@ async def get_job_status(job_id: str):
         "source_language": job.get("source_language"),
         "target_language": job.get("target_language", "en"),
         "translation_provider": job.get("translation_provider"),
+        "device": job.get("device", "auto"),
         "current_page": job.get("current_page", 0),
         "total_pages": job.get("total_pages", 0),
         "processed_chunks": job.get("processed_chunks", 0),

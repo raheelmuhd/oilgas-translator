@@ -113,6 +113,7 @@ interface Job {
   processed_chunks?: number;
   total_chunks?: number;
   translation_provider?: string;
+  device?: string;
   gpu_used?: boolean;
 }
 
@@ -149,6 +150,7 @@ function HomeComponent() {
   const [sourceLang, setSourceLang] = useState<string>("");
   const [targetLang, setTargetLang] = useState<string>("en");
   const [translationProvider, setTranslationProvider] = useState<string>("ollama");  // Default to Ollama/qwen3:8b
+  const [device, setDevice] = useState<string>("auto");  // "cpu", "gpu", or "auto"
   const [isUploading, setIsUploading] = useState(false);
   const [currentJob, setCurrentJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +159,9 @@ function HomeComponent() {
   const [backendConnected, setBackendConnected] = useState<boolean | null>(null);
   const progressRef = useRef<number>(0);
   const { systemInfo, loading: systemLoading } = useSystemInfo();
+
+  // Auto mode: Keep as "auto" and let backend decide (GPU if available, CPU if not)
+  // The backend will handle the actual device selection when processing
 
   // Check backend connection on mount and retry if failed
   useEffect(() => {
@@ -205,6 +210,8 @@ function HomeComponent() {
     };
   }, []);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       setFile(acceptedFiles[0]);
@@ -212,7 +219,15 @@ function HomeComponent() {
     }
   }, []);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setFile(files[0]);
+      setError(null);
+    }
+  }, []);
+
+  const { getRootProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
       "application/pdf": [".pdf"],
@@ -222,7 +237,20 @@ function HomeComponent() {
       "image/*": [".png", ".jpg", ".jpeg", ".tiff", ".bmp"],
     },
     maxFiles: 1,
+    noClick: true, // Disable click on dropzone, use button instead
+    noKeyboard: true,
   });
+
+  const handleBrowseClick = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Small delay to ensure event handlers are ready
+    setTimeout(() => {
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    }, 0);
+  }, []);
 
   const uploadFile = async () => {
     if (!file) return;
@@ -232,11 +260,19 @@ function HomeComponent() {
     setStartTime(new Date());
     progressRef.current = 0;
 
+    // Validate device selection before upload
+    if (device === "gpu" && systemInfo && !systemInfo.gpu.gpu_available) {
+      setError("GPU selected but not available. Please select CPU or use DeepSeek API.");
+      setIsUploading(false);
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("target_language", targetLang);
     if (sourceLang) formData.append("source_language", sourceLang);
     formData.append("translation_provider", translationProvider);
+    formData.append("device", device);
 
     try {
       const response = await fetch(`${API_URL}/api/v1/translate`, {
@@ -249,6 +285,12 @@ function HomeComponent() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        // Handle structured error response from backend
+        if (errorData.detail && typeof errorData.detail === 'object') {
+          const errorMsg = errorData.detail.error || "Upload failed";
+          const suggestion = errorData.detail.suggestion || "";
+          throw new Error(`${errorMsg}. ${suggestion}`);
+        }
         throw new Error(errorData.detail || "Upload failed");
       }
 
@@ -260,6 +302,7 @@ function HomeComponent() {
         message: data.message,
         filename: file.name,
         translation_provider: translationProvider,
+        device: device,
         gpu_used: systemInfo?.gpu.gpu_available && translationProvider === 'nllb',
       });
     } catch (err) {
@@ -293,11 +336,12 @@ function HomeComponent() {
               status: data.status,
               progress: newProgress,
               message: data.message,
-              current_page: data.current_page || prev.current_page,
-              total_pages: data.total_pages || prev.total_pages,
+              current_page: data.current_page !== undefined ? data.current_page : prev.current_page,
+              total_pages: data.total_pages !== undefined ? data.total_pages : prev.total_pages,
               processed_chunks: data.processed_chunks || prev.processed_chunks,
               total_chunks: data.total_chunks || prev.total_chunks,
               translation_provider: data.translation_provider || prev.translation_provider,
+              device: data.device || prev.device,
               gpu_used: data.gpu_used !== undefined ? data.gpu_used : prev.gpu_used,
             };
           });
@@ -366,8 +410,9 @@ function HomeComponent() {
     if (currentJob.status === "extracting" && currentJob.current_page && currentJob.total_pages) {
       return `Processing page ${currentJob.current_page} of ${currentJob.total_pages}`;
     }
-    if (currentJob.status === "translating" && currentJob.processed_chunks && currentJob.total_chunks) {
-      return `Translating section ${currentJob.processed_chunks} of ${currentJob.total_chunks}`;
+    if (currentJob.status === "translating" && currentJob.current_page && currentJob.total_pages) {
+      const remaining = currentJob.total_pages - currentJob.current_page;
+      return `Translating page ${currentJob.current_page} of ${currentJob.total_pages} (${remaining} remaining)`;
     }
     return currentJob.message || "Processing...";
   };
@@ -411,7 +456,13 @@ function HomeComponent() {
                     : "border-gray-300 hover:border-gray-400"
                 }`}
               >
-                <input {...getInputProps()} />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileChange}
+                  accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.tiff,.bmp"
+                  style={{ display: 'none' }}
+                />
                 {file ? (
                   <div className="flex flex-col items-center">
                     <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
@@ -421,6 +472,13 @@ function HomeComponent() {
                     <p className="text-sm text-gray-500">
                       {(file.size / (1024 * 1024)).toFixed(2)} MB
                     </p>
+                    <button
+                      type="button"
+                      onClick={handleBrowseClick}
+                      className="mt-4 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 underline"
+                    >
+                      Choose different file
+                    </button>
                   </div>
                 ) : (
                   <>
@@ -430,8 +488,18 @@ function HomeComponent() {
                     <p className="text-lg font-medium text-gray-900 mb-2">
                       {isDragActive ? "Drop your file here" : "Upload Document"}
                     </p>
-                    <p className="text-sm text-gray-500">
-                      PDF, DOCX, XLSX, PPTX, or images up to 600MB
+                    <p className="text-sm text-gray-500 mb-3">
+                      PDF, DOCX, XLSX, PPTX up to 600MB
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleBrowseClick}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Browse Files
+                    </button>
+                    <p className="text-xs text-blue-600 mt-3 font-medium">
+                      ⚠️ Image-to-PDF translation coming soon
                     </p>
                   </>
                 )}
@@ -455,6 +523,103 @@ function HomeComponent() {
                   gpuAvailable={systemInfo.gpu.gpu_available}
                 />
               )}
+
+              {/* Device Selection */}
+              <div className="mb-4 mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Processing Device
+                </label>
+                <div className="space-y-2">
+                  <label className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                    device === 'auto' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="device"
+                      value="auto"
+                      checked={device === 'auto'}
+                      onChange={() => setDevice('auto')}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Auto (Recommended)</span>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {systemInfo?.gpu.gpu_available 
+                          ? `🚀 Will use GPU (${systemInfo.gpu.gpu_name || 'detected'})`
+                          : '⚠️ Will use CPU (GPU not available)'}
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                    device === 'gpu' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                  } ${!systemInfo?.gpu.gpu_available ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    <input
+                      type="radio"
+                      name="device"
+                      value="gpu"
+                      checked={device === 'gpu'}
+                      onChange={() => {
+                        if (systemInfo?.gpu.gpu_available) {
+                          setDevice('gpu');
+                          setError(null);
+                        } else {
+                          setError('GPU not available. Please select CPU or use DeepSeek API.');
+                        }
+                      }}
+                      disabled={!systemInfo?.gpu.gpu_available}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">GPU</span>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {systemInfo?.gpu.gpu_available 
+                          ? `🚀 Fast - ${systemInfo.gpu.gpu_name || 'GPU'}`
+                          : '❌ Not available'}
+                      </p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+                    device === 'cpu' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="device"
+                      value="cpu"
+                      checked={device === 'cpu'}
+                      onChange={() => {
+                        setDevice('cpu');
+                        setError(null);
+                      }}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">CPU</span>
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {systemInfo?.gpu.gpu_available 
+                          ? '⚠️ Slower but available'
+                          : '✅ Always available (slower)'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+                
+                {/* Show warning if GPU selected but not available */}
+                {device === 'gpu' && systemInfo && !systemInfo.gpu.gpu_available && (
+                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-800">
+                      <strong>Error:</strong> GPU selected but not available. Please select CPU or use DeepSeek API for faster results.
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {/* Language Selection */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -594,13 +759,13 @@ function HomeComponent() {
                     ) : currentJob.translation_provider === 'claude' ? (
                       <span className="text-purple-600">⚡ Using Claude API (premium)</span>
                     ) : currentJob.translation_provider === 'ollama' ? (
-                      systemInfo?.gpu.gpu_available ? (
+                      currentJob.device === 'gpu' || (currentJob.device === 'auto' && systemInfo?.gpu.gpu_available) ? (
                         <span className="text-green-600">🚀 Using FREE Ollama/qwen3:8b (GPU accelerated)</span>
                       ) : (
                         <span className="text-yellow-600">⏳ Using FREE Ollama/qwen3:8b (CPU - slower)</span>
                       )
                     ) : currentJob.translation_provider === 'nllb' ? (
-                      currentJob.gpu_used || systemInfo?.gpu.gpu_available ? (
+                      currentJob.device === 'gpu' || (currentJob.device === 'auto' && systemInfo?.gpu.gpu_available) ? (
                         <span className="text-green-600">🚀 Using GPU-accelerated NLLB</span>
                       ) : (
                         <span className="text-yellow-600">⏳ Using CPU-based NLLB (slower)</span>

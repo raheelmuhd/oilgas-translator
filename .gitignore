@@ -66,3 +66,23 @@ htmlcov/
 .vercel
 .turbo
 
+# Debug and test files
+backend/debug/
+backend/*.pdf
+backend/*.docx
+backend/*.txt
+backend/comparison_report.txt
+backend/problem_pages.txt
+backend/document_check.py
+backend/monitor_job.py
+backend/test_upload.py
+backend/venv_old/
+nul
+
+# Backup files
+backend/app/*_backup*.py
+backend/app/*_BROKEN*.py
+backend/app/*_SLOW*.py
+backend/app/*_old*.py
+backend/app/backend.zip
+frontend/src.zip

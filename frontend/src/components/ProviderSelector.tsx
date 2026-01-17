@@ -74,11 +74,11 @@ export function ProviderSelector({
             onChange={() => onSelect('nllb')}
             className="mr-3"
           />
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Free - Fast (NLLB)</span>
-              <span className="text-green-600 text-sm">{providers.nllb.cost}</span>
-            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">Free (NLLB)</span>
+                <span className="text-green-600 text-sm">{providers.nllb.cost}</span>
+              </div>
             <p className="text-sm text-gray-500">
               {gpuAvailable ? (
                 <>🚀 GPU accelerated - {providers.nllb.estimate}</>
@@ -117,7 +117,7 @@ export function ProviderSelector({
         {/* Info message */}
         {!ollamaAvailable && (
           <div className="p-3 border border-dashed border-gray-300 rounded-lg text-gray-500 text-sm">
-            💡 <strong>Want better accuracy?</strong> Install Ollama with qwen3:8b for high-quality free translations.
+            💡 <strong>Want better accuracy?</strong> Use DeepSeek API for better accuracy, coherent sentences, and reliability.
           </div>
         )}
       </div>

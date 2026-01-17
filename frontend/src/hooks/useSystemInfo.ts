@@ -6,6 +6,7 @@ interface SystemInfo {
     gpu_name: string | null;
     using_device: string;
   };
+  device_recommendation: string;
   providers: {
     nllb: {
       available: boolean;

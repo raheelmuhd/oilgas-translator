@@ -64,6 +64,7 @@ class TranslationRequest(BaseModel):
     target_language: str = "en"
     ocr_provider: Optional[str] = None
     translation_provider: Optional[str] = None
+    device: Optional[str] = "auto"  # "cpu", "gpu", or "auto"
 
 
 class TranslationResponse(BaseModel):

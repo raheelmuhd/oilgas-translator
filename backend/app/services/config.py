@@ -19,8 +19,15 @@ class TranslationMode(str, Enum):
 
 class OCRProvider(str, Enum):
     PADDLEOCR = "paddleocr"
+    TESSERACT = "tesseract"
     AZURE = "azure"
     GPT4O = "gpt4o"
+
+
+class ImageOCRBackend(str, Enum):
+    AUTO = "auto"           # Try PaddleOCR first, fallback to Tesseract
+    PADDLEOCR = "paddleocr"
+    TESSERACT = "tesseract"
 
 
 class TranslationProvider(str, Enum):
@@ -115,9 +122,6 @@ class Settings(BaseSettings):
     max_concurrent_jobs: int = 3
     job_timeout_minutes: int = 60
     
-    # Glossary
-    glossary_path: str = "./glossary/oilgas_terminology.json"
-    
     # ==========================================================================
     # IMAGE OCR SETTINGS - Extract and translate text from images in PDFs
     # ==========================================================================
@@ -125,6 +129,10 @@ class Settings(BaseSettings):
     image_ocr_backend: str = "auto"  # "auto", "paddleocr", "tesseract"
     image_ocr_dpi: int = 200  # DPI for rendering pages as images
     image_ocr_min_confidence: float = 0.3  # Min confidence threshold
+    image_ocr_languages: list[str] = ["en", "hr", "sr", "uk", "ru"]  # Language hints
+    
+    # Glossary
+    glossary_path: str = "./glossary/oilgas_terminology.json"
     
     class Config:
         env_file = ".env"
